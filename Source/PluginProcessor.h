@@ -4,7 +4,7 @@
 #include <vector>
 #include <memory>
 struct CurveNode { float x=0,y=0,tension=0; };
-struct CurveData { std::vector<CurveNode> nodes; };
+struct ScratchCurveData { std::vector<CurveNode> nodes; };
 class ScratchPadAudioProcessor : public juce::AudioProcessor {
 public:
  ScratchPadAudioProcessor();
@@ -25,14 +25,14 @@ public:
  void setStateInformation(const void*,int) override;
  juce::AudioProcessorValueTreeState apvts;
  static juce::AudioProcessorValueTreeState::ParameterLayout makeParameters();
- std::shared_ptr<const CurveData> curveSnapshot() const { return std::atomic_load(&curve); }
+ std::shared_ptr<const ScratchCurveData> curveSnapshot() const { return std::atomic_load(&curve); }
  void setCurve(std::vector<CurveNode>);
  std::atomic<float> playhead{0};
  std::atomic<double> bpm{120.0};
  std::atomic<bool> stopping{false};
  juce::String presetName{"scratch it!"};
 private:
- std::shared_ptr<const CurveData> curve;
+ std::shared_ptr<const ScratchCurveData> curve;
  juce::AudioBuffer<float> ring;
  int writePos=0, loopSamples=1, samplesPerCycle=1, phaseSamples=0;
  double readPos=0, sampleRate=44100, lastBpm=120;
@@ -40,7 +40,7 @@ private:
  int fadeRemaining=0, fadeSamples=1;
  std::vector<float> previousOutput;
  juce::SmoothedValue<float> amount;
- static float evaluate(const CurveData&,float);
+ static float evaluate(const ScratchCurveData&,float);
  float interpolate(int channel,double pos) const;
  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ScratchPadAudioProcessor)
 };
