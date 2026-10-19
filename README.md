@@ -1,29 +1,22 @@
-# Skell VST3 Quickstart Template
+# ScratchPad — JUCE VST3 / Standalone source
 
-Reusable JUCE 8 / CMake / GitHub Actions Windows VST3 starter derived from the **build structure** of your uploaded skell-key-vst project. Unlike the TONIC-specific project, this is a generic **gain effect** with a working parameter, GUI knob, preset-state serialization, mono/stereo support, and automated GitHub packaging.
+Original vector scratch-speed envelope plugin. Based on the uploaded JUCE/GitHub workflow template.
 
-## Fast start
+## Build
 
-1. Create a new GitHub repository and upload the **contents** of this folder (including `.github`).
-2. Open **Actions → Build Windows VST3 → Run workflow**.
-3. After a successful build, download the workflow artifact containing the `.vst3` bundle.
-4. Or run `python tools/new_plugin.py "Skell Compressor" ../skell-compressor --code Sk03` to generate a separate renamed project. Use a **different 4-character plugin code** for every released plugin; the manufacturer code should remain stable for your brand.
+- Install CMake >= 3.22, C++17 compiler, and optionally JUCE 7+.
+- `cmake -S . -B build -DJUCE_PATH=/path/to/JUCE` (otherwise CMake fetches JUCE 8.0.12).
+- `cmake --build build --config Release --parallel 2`
+- GitHub Actions -> **Build ScratchPad Windows** -> Run workflow to download a zipped VST3 artifact. Standalone is built alongside it.
 
-## Local build
+## Features
 
-`cmake -S . -B build -A x64 -DJUCE_PATH=C:/JUCE`
+Drag red nodes; click the graph to add; double-click to remove; drag near a segment midpoint to modify its bend; right-click graph for editing commands and presets. Alt bypasses 1/64-time and 1/8-speed snapping. Wheel scrolls, Ctrl+wheel zooms. Drag knob vertically or double-click to reset. Stop is a momentary gesture. Save / Load presets use binary JUCE state. All five parameters are in APVTS; curve nodes and preset name are persisted alongside state.
 
-`cmake --build build --config Release --parallel 2`
+## DSP notes / limits
 
-Without `JUCE_PATH`, CMake fetches JUCE 8.0.12 from GitHub.
-
-## Where to edit
-
-- `Source/PluginProcessor.cpp`: parameters and DSP (the sample multiplies incoming audio by Gain).
-- `Source/PluginEditor.cpp`: GUI and knob layout.
-- `CMakeLists.txt`: company, unique plugin code, bundle ID, plugin format, name.
-- `.github/workflows/build.yml`: CI compilation and artifact packaging.
-
-## Important
-
-This is **not** a synthesizer template; it is an audio effect. It does not include TONIC's pitch/key detector or third-party graphical assets. The supplied original ZIP was used to guide project layout and the GitHub workflow. No original TONIC code is bundled. A successful GitHub Actions build has not been verified in this environment.
+- Continuous live input ring buffer; each loop is an output envelope cycle, not a one-time capture. Speed 0 holds the current sample, +/- speed scrubs backward/forward with Hermite interpolation.
+- Loop timing follows host BPM when sync is enabled; without a reported tempo, uses 120 BPM.
+- Zero reported algorithmic latency; note that looped playback necessarily reproduces previously recorded audio and cannot predict future input.
+- Boundary fade is a simple output-blend anti-click strategy, **not** dual-head phase-consistent overlap-add. Extreme scrubbing and repeated loop resets may still produce artifacts. The first pass is functional source, not a sonically validated production release.
+- This environment does not ship JUCE's SDK, so compile/run verification should be done with the included Windows GitHub workflow.

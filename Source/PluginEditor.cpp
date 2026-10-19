@@ -1,22 +1,5 @@
 #include "PluginEditor.h"
-SkellAudioProcessorEditor::SkellAudioProcessorEditor(SkellAudioProcessor& p)
- : AudioProcessorEditor(&p),gainAttachment(p.parameters,"gain",gain) {
-  setSize(520,340);
-  title.setText("Skell Quickstart",juce::dontSendNotification);
-  title.setFont(juce::Font(juce::FontOptions(26.0f).withStyle("Bold")));
-  title.setJustificationType(juce::Justification::centred);
-  gain.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-  gain.setTextBoxStyle(juce::Slider::TextBoxBelow,false,90,25);
-  addAndMakeVisible(title);addAndMakeVisible(gain);
-}
-void SkellAudioProcessorEditor::paint(juce::Graphics& g) {
-  g.fillAll(juce::Colour(0xff16191e));
-  g.setColour(juce::Colour(0xff323a48));
-  g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(12),12.0f,2.0f);
-  g.setColour(juce::Colour(0xffb0c9ff));
-  g.drawText("GAIN",getWidth()/2-60,245,120,24,juce::Justification::centred);
-}
-void SkellAudioProcessorEditor::resized() {
-  title.setBounds(40,34,getWidth()-80,55);
-  gain.setBounds(getWidth()/2-75,100,150,145);
-}
+ScratchPadAudioProcessorEditor::ScratchPadAudioProcessorEditor(ScratchPadAudioProcessor& p):AudioProcessorEditor(p),processor(p),curve(p),knob(p),footer(p){setSize(441,263);setResizable(true,true);constrainer.setFixedAspectRatio(441.0/263.0);constrainer.setSizeLimits(441,263,1323,789);setConstrainer(&constrainer);addAndMakeVisible(curve);addAndMakeVisible(knob);addAndMakeVisible(footer);addAndMakeVisible(stop);stop.setColour(juce::TextButton::buttonColourId,juce::Colour::fromRGB(90,90,90));stop.setColour(juce::TextButton::textColourOffId,juce::Colours::white);stop.setMouseCursor(juce::MouseCursor::PointingHandCursor);stop.onStateChange=[this]{bool down=stop.isDown();processor.stopping.store(down);auto* param=processor.apvts.getParameter("stopTrigger");if(param){if(down)param->beginChangeGesture();param->setValueNotifyingHost(down?1.f:0.f);if(!down)param->endChangeGesture();}};footer.loadPreset=[this](int id){if(id==0)curve.setPreset({{0,1,0},{.06f,-1,0},{.12f,1,0},{.18f,-1,0},{.30f,1,0},{1,0,0}});if(id==1)curve.setPreset({{0,1,0},{.35f,.7f,-.1f},{1,0,0}});if(id==2)curve.setPreset({{0,-1,0},{.45f,-.3f,0},{1,1,0}});processor.presetName=juce::StringArray{"scratch it!","Brake","Reverse"}[id];footer.repaint();};startTimerHz(20);}
+void ScratchPadAudioProcessorEditor::paint(juce::Graphics& g){g.fillAll(Theme::bg);float sx=getWidth()/441.f,sy=getHeight()/263.f;juce::Graphics::ScopedSaveState s(g);g.addTransform(juce::AffineTransform::scale(sx,sy));juce::Path p;p.startNewSubPath(9,3);p.lineTo(432,3);p.lineTo(438,9);p.lineTo(438,254);p.lineTo(432,260);p.lineTo(9,260);p.lineTo(3,254);p.lineTo(3,9);p.closeSubPath();g.setColour(Theme::cyan);g.strokePath(p,juce::PathStrokeType(1.5f));g.setColour(Theme::cyan.withAlpha(.28f));g.drawRect(7,7,427,248,1);g.drawLine(4,211,437,211,1.5f);}
+void ScratchPadAudioProcessorEditor::resized(){auto scaled=[this](int x,int y,int w,int h){return juce::Rectangle<int>(juce::roundToInt(x*getWidth()/441.f),juce::roundToInt(y*getHeight()/263.f),juce::roundToInt(w*getWidth()/441.f),juce::roundToInt(h*getHeight()/263.f));};curve.setBounds(scaled(14,8,291,193));knob.setBounds(scaled(315,9,112,122));stop.setBounds(scaled(319,138,105,59));footer.setBounds(scaled(9,215,424,42));}
+void ScratchPadAudioProcessorEditor::timerCallback(){footer.repaint();}
