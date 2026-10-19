@@ -9,7 +9,7 @@ float hermite(float a,float b,float c,float d,float t){ const float c0=b,c1=.5f*
 ScratchPadAudioProcessor::ScratchPadAudioProcessor():AudioProcessor(BusesProperties().withInput("Input",juce::AudioChannelSet::stereo(),true).withOutput("Output",juce::AudioChannelSet::stereo(),true)),apvts(*this,nullptr,"Parameters",makeParameters()) { setCurve(initialCurve()); }
 juce::AudioProcessorValueTreeState::ParameterLayout ScratchPadAudioProcessor::makeParameters(){
  juce::AudioProcessorValueTreeState::ParameterLayout p;
- p.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"scratchAmount",1},"Scratch Amount",juce::NormalisableRange<float>(0,100,1),100));
+ p.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"scratchAmount",1},"Scratch Amount",juce::NormalisableRange<float>(0.0f,100.0f,1.0f),100.0f));
  p.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"stopTrigger",1},"Stop",false));
  p.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"loopLength",1},"Loop Length",juce::StringArray{"1/4","1/2","1 bar","2 bars","4 bars"},2));
  p.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"speedRange",1},"Speed Range",juce::StringArray{"+/-1x","+/-2x","+/-4x"},1));
@@ -36,3 +36,9 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf,juce::
 void ScratchPadAudioProcessor::getStateInformation(juce::MemoryBlock& dest){auto root=apvts.copyState();juce::ValueTree curveTree("CURVE");for(const auto& n:curveSnapshot()->nodes){juce::ValueTree v("NODE");v.setProperty("x",n.x,nullptr);v.setProperty("y",n.y,nullptr);v.setProperty("tension",n.tension,nullptr);curveTree.addChild(v,-1,nullptr);}root.addChild(curveTree,-1,nullptr);root.setProperty("presetName",presetName,nullptr);if(auto xml=root.createXml())copyXmlToBinary(*xml,dest);}
 void ScratchPadAudioProcessor::setStateInformation(const void* data,int size){if(auto xml=getXmlFromBinary(data,size)){auto root=juce::ValueTree::fromXml(*xml);if(root.isValid()){auto nodes=root.getChildWithName("CURVE");if(nodes.isValid()){std::vector<CurveNode> out;for(auto node:nodes)if(node.hasType("NODE"))out.push_back({(float)node.getProperty("x"),(float)node.getProperty("y"),(float)node.getProperty("tension")});if(!out.empty())setCurve(std::move(out));root.removeChild(nodes,nullptr);}presetName=root.getProperty("presetName","scratch it!").toString();apvts.replaceState(root);}}}
 juce::AudioProcessorEditor* ScratchPadAudioProcessor::createEditor(){return new ScratchPadAudioProcessorEditor(*this);}
+
+// JUCE plugin client entry point, required by both VST3 and Standalone targets.
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+{
+    return new ScratchPadAudioProcessor();
+}

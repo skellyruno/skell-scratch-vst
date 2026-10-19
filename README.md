@@ -20,3 +20,9 @@ Drag red nodes; click the graph to add; double-click to remove; drag near a segm
 - Zero reported algorithmic latency; note that looped playback necessarily reproduces previously recorded audio and cannot predict future input.
 - Boundary fade is a simple output-blend anti-click strategy, **not** dual-head phase-consistent overlap-add. Extreme scrubbing and repeated loop resets may still produce artifacts. The first pass is functional source, not a sonically validated production release.
 - This environment does not ship JUCE's SDK, so compile/run verification should be done with the included Windows GitHub workflow.
+
+## v1.0.2 link fix
+
+- Added the global JUCE `createPluginFilter()` entry point used by VST3 and Standalone wrappers.
+- Changed scratchAmount range and default arguments to float literals to avoid MSVC C4244 narrowing warning.
+- Compilation/linking must be verified by the Windows GitHub Actions workflow; not validated locally.
