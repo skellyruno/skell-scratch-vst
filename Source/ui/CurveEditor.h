@@ -17,7 +17,7 @@ private:
  ScratchPadAudioProcessor& processor;
  juce::Rectangle<float> plot;
  int dragged=-1,bend=-1;
- float viewStart=0,viewWidth=1;
+ float viewStart=0,viewWidth=1,scrollStart=0;
  float lastPosition=0;
  bool draggingScroll=false;
  juce::Point<float> point(const CurveNode&) const;

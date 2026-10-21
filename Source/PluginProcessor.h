@@ -32,13 +32,23 @@ public:
  std::atomic<bool> stopping{false};
  juce::String presetName{"scratch it!"};
 private:
+ // The UI owns snapshots. Audio uses a non-owning pointer held alive until
+ // all audio blocks that could have seen it have completed.
  std::shared_ptr<const ScratchCurveData> curve;
+ std::atomic<const ScratchCurveData*> realtimeCurve{nullptr};
+ std::atomic<unsigned> activeAudioReaders{0};
+ std::vector<std::shared_ptr<const ScratchCurveData>> retiredCurves;
  juce::AudioBuffer<float> ring;
  int writePos=0, loopSamples=1, samplesPerCycle=1, phaseSamples=0;
- double readPos=0, sampleRate=44100, lastBpm=120;
+ double readPos=0, transitionReadPos=0, sampleRate=44100;
+ int recordedSamples=0, transitionRemaining=0;
+ bool lastHostPlaying=false;
+ bool hostTransportKnown=false;
+ juce::int64 expectedHostSample=0;
+ bool transitionActive=false;
  bool wasStopped=false;
  int fadeRemaining=0, fadeSamples=1;
- std::vector<float> previousOutput;
+ juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> stopGain;
  juce::SmoothedValue<float> amount;
  static float evaluate(const ScratchCurveData&,float);
  float interpolate(int channel,double pos) const;
