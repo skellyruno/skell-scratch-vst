@@ -1,7 +1,7 @@
 #include "PluginEditor.h"
 
 ScratchPadAudioProcessorEditor::ScratchPadAudioProcessorEditor(ScratchPadAudioProcessor& p)
- : AudioProcessorEditor(p), processor(p), curve(p), knob(p), footer(p)
+ : AudioProcessorEditor(p), processor(p), curve(p), knob(p), footer(p), tooltipWindow(this, 750)
 {
  setOpaque(true);
  setSize(441,263);

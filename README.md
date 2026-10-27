@@ -58,3 +58,12 @@ g++ -std=c++17 -O2 -Wall -Wextra -Werror tests/preset_bank_test.cpp -o preset_te
 ```
 
 Tests cover curve normalization, endpoints, insertion-collision cleanup, finite data, interpolation, all 36 preset envelopes, head wrapping and overwrite geometry. They do not replace DAW audition tests.
+
+
+## v1.7.1 Windows compiler compatibility
+
+Fixed MSVC C3861 (`setTooltip` not found) in `Source/ui/ScratchKnob.cpp`.
+`ScratchKnob` now derives from `juce::SettableTooltipClient` in addition to
+`juce::Component`, and the editor owns a `juce::TooltipWindow` so the knob
+and stop tooltips display inside the plugin editor. This patch does not
+change plugin IDs, parameter IDs, preset formats, or DSP behavior.

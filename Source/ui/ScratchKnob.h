@@ -2,7 +2,9 @@
 #include "../PluginProcessor.h"
 #include "Theme.h"
 
-class ScratchKnob final : public juce::Component {
+// A plain juce::Component does not provide setTooltip(). The tooltip
+// capability comes from JUCE's SettableTooltipClient mixin.
+class ScratchKnob final : public juce::Component, public juce::SettableTooltipClient {
 public:
  explicit ScratchKnob(ScratchPadAudioProcessor&);
  void paint(juce::Graphics&) override;
