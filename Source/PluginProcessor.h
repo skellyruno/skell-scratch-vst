@@ -3,7 +3,8 @@
 #include <atomic>
 #include <vector>
 #include <memory>
-struct CurveNode { float x=0,y=0,tension=0; };
+#include <mutex>
+#include "CurveMath.h"
 struct ScratchCurveData { std::vector<CurveNode> nodes; };
 class ScratchPadAudioProcessor : public juce::AudioProcessor {
 public:
@@ -38,6 +39,7 @@ private:
  std::atomic<const ScratchCurveData*> realtimeCurve{nullptr};
  std::atomic<unsigned> activeAudioReaders{0};
  std::vector<std::shared_ptr<const ScratchCurveData>> retiredCurves;
+ std::mutex curvePublishMutex;  // Non-RT editors/state restores only; audio never locks.
  juce::AudioBuffer<float> ring;
  int writePos=0, loopSamples=1, samplesPerCycle=1, phaseSamples=0;
  double readPos=0, transitionReadPos=0, sampleRate=44100;
@@ -50,6 +52,7 @@ private:
  int fadeRemaining=0, fadeSamples=1;
  juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> stopGain;
  juce::SmoothedValue<float> amount;
+ juce::SmoothedValue<float> speedRangeSmoothing;
  static float evaluate(const ScratchCurveData&,float);
  float interpolate(int channel,double pos) const;
  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ScratchPadAudioProcessor)

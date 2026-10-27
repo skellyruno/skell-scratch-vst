@@ -30,37 +30,30 @@ void ScratchPadAudioProcessor::prepareToPlay(double sr, int block)
  transitionRemaining=0;transitionActive=false;wasStopped=false;
  lastHostPlaying=false;hostTransportKnown=false;expectedHostSample=0;
  amount.reset(sampleRate,.015);
+ speedRangeSmoothing.reset(sampleRate,.012);
+ { const auto raw=apvts.getRawParameterValue("speedRange")->load();
+   speedRangeSmoothing.setCurrentAndTargetValue(raw<.5f?1.f:raw<1.5f?2.f:4.f); }
  amount.setCurrentAndTargetValue(apvts.getRawParameterValue("scratchAmount")->load()*.01f);
  stopGain.reset(sampleRate,.002);
  stopGain.setCurrentAndTargetValue(1.0f);
  setLatencySamples(0);
 }
-void ScratchPadAudioProcessor::setCurve(std::vector<CurveNode> nodes){if(nodes.size()>512)nodes.resize(512);for(auto& n:nodes){if(!std::isfinite(n.x))n.x=0; if(!std::isfinite(n.y))n.y=0; if(!std::isfinite(n.tension))n.tension=0; n.x=juce::jlimit(0.f,1.f,n.x);n.y=juce::jlimit(-2.f,2.f,n.y);n.tension=juce::jlimit(-2.f,2.f,n.tension);}std::stable_sort(nodes.begin(),nodes.end(),[](auto&a,auto&b){return a.x<b.x;});
- if(nodes.empty())nodes={{0,0,0},{1,0,0}};
- // Remove duplicate x positions produced by grid snapping or preset stretch.
- // Keep the latest node at a given time.
- std::vector<CurveNode> cleaned;
- cleaned.reserve(nodes.size()+2);
- for(auto n:nodes)
- {
-  if(!cleaned.empty() && n.x-cleaned.back().x<0.0001f)
-   cleaned.back()=n;
-  else cleaned.push_back(n);
- }
- if(cleaned.size()==1)
- {
-  if(cleaned.front().x>0.f)cleaned.insert(cleaned.begin(),CurveNode{0.f,cleaned.front().y,0.f});
-  else cleaned.push_back(CurveNode{1.f,cleaned.front().y,0.f});
- }
- nodes=std::move(cleaned);auto ptr=std::make_shared<const ScratchCurveData>(ScratchCurveData{std::move(nodes)});
- // Publish the new snapshot before retiring the old one. The audio thread
- // never increments/decrements shared_ptr refcounts or frees heap memory.
- auto old=std::atomic_exchange(&curve,ptr);
- realtimeCurve.store(ptr.get(),std::memory_order_seq_cst);
- if(old) retiredCurves.push_back(std::move(old));
- // Reclamation happens only on the editor/message thread.
- if(activeAudioReaders.load(std::memory_order_seq_cst)==0) retiredCurves.clear();}
-float ScratchPadAudioProcessor::evaluate(const ScratchCurveData& c,float x){auto& v=c.nodes;if(v.empty())return 0;if(x<=v.front().x)return v.front().y;if(x>=v.back().x)return v.back().y;auto it=std::upper_bound(v.begin(),v.end(),x,[](float t,const CurveNode& n){return t<n.x;});size_t i=(size_t)(it-v.begin()-1);auto&a=v[i];auto&b=v[i+1];float t=(x-a.x)/std::max(.00001f,b.x-a.x);return juce::jlimit(-2.f,2.f,a.y+(b.y-a.y)*t+a.tension*4*t*(1-t));}
+void ScratchPadAudioProcessor::setCurve(std::vector<CurveNode> nodes)
+{
+ CurveMath::normalize(nodes);
+ std::lock_guard<std::mutex> publishLock(curvePublishMutex);
+ auto updated = std::make_shared<const ScratchCurveData>(ScratchCurveData{std::move(nodes)});
+ // Publish without any allocation, lock or reference counting on the audio thread.
+ // Old snapshots are reclaimed only when no audio reader is active.
+ auto previous = std::atomic_exchange(&curve, updated);
+ realtimeCurve.store(updated.get(), std::memory_order_seq_cst);
+ if (previous) retiredCurves.push_back(std::move(previous));
+ if (activeAudioReaders.load(std::memory_order_seq_cst) == 0) retiredCurves.clear();
+}
+float ScratchPadAudioProcessor::evaluate(const ScratchCurveData& curve, float x)
+{
+ return CurveMath::evaluate(curve.nodes, x);
+}
 float ScratchPadAudioProcessor::interpolate(int ch,double pos) const
 {
  const int n=ring.getNumSamples();
@@ -75,7 +68,10 @@ float ScratchPadAudioProcessor::interpolate(int ch,double pos) const
   if(age>=recordedSamples) return 0.f;
   return ring.getSample(ch,idx);
  };
- return hermite(at(integer-1),at(integer),at(integer+1),at(integer+2),t);
+ const float a=at(integer-1),b=at(integer),c=at(integer+1),d=at(integer+2);
+ const float interpolated=hermite(a,b,c,d,t);
+ return juce::jlimit(std::min(std::min(a,b),std::min(c,d)),
+                     std::max(std::max(a,b),std::max(c,d)),interpolated);
 }
 void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce::MidiBuffer&)
 {
@@ -120,14 +116,19 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
   (int)std::round(sampleRate*beat*4.0*bars[juce::jlimit(0,4,(int)lengthParam->load())]));
  if(requested!=loopSamples)
  {
+  const int previousLoopLength=loopSamples;
   const double progress=(double)phaseSamples/std::max(1,loopSamples);
   loopSamples=requested;
   phaseSamples=juce::jlimit(0,loopSamples-1,(int)(progress*loopSamples));
-  // Switch to the new historical region through two simultaneous read heads.
-  transitionReadPos=readPos;
-  readPos=(double)((writePos-loopSamples+ringSize)%ringSize);
-  transitionRemaining=fadeSamples;
-  transitionActive=true;
+  // Small ongoing tempo ramps adjust envelope timing without retriggering
+  // a seek fade every audio block. Only meaningful loop-size jumps retarget.
+  if (std::abs(requested-previousLoopLength)>std::max(32,fadeSamples*4))
+  {
+   transitionReadPos=readPos;
+   readPos=(double)((writePos-loopSamples+ringSize)%ringSize);
+   transitionRemaining=fadeSamples;
+   transitionActive=true;
+  }
  }
  if(hostDiscontinuity && loopSamples>0)
  {
@@ -138,13 +139,14 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
   transitionActive=true;
  }
  amount.setTargetValue(amountParam->load()*.01f);
+ const float requestedRange=rangeParam->load()<.5f?1.f:rangeParam->load()<1.5f?2.f:4.f;
+ speedRangeSmoothing.setTargetValue(requestedRange);
  // The seq_cst reader guard prevents reclamation of the snapshot during
  // this block, including a concurrent editor edit.
  activeAudioReaders.fetch_add(1,std::memory_order_seq_cst);
  const auto* curveData=realtimeCurve.load(std::memory_order_seq_cst);
  const int channels=std::min(buf.getNumChannels(),ring.getNumChannels());
- const float speedMultiplier=rangeParam->load()<.5f?1.f:rangeParam->load()<1.5f?2.f:4.f;
- const bool stopped=stopParam->load()>.5f||stopping.load(std::memory_order_relaxed);
+ const bool stopped=stopParam->load()>.5f;
  stopGain.setTargetValue(stopped?0.f:1.f);
  for(int i=0;i<buf.getNumSamples();++i)
  {
@@ -167,6 +169,7 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
   }
   const float x=(float)phaseSamples/std::max(1,loopSamples);
   const float smoothedAmount=amount.getNextValue();
+  const float speedMultiplier=speedRangeSmoothing.getNextValue();
   const float speed=stopped||curveData==nullptr?0.f:evaluate(*curveData,x)*smoothedAmount*speedMultiplier*.5f;
   const float gain=stopGain.getNextValue();
   const float crossfade=transitionActive
