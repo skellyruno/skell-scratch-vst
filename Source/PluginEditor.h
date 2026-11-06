@@ -19,6 +19,7 @@ private:
  // Owns hover tooltips for both ScratchKnob and StopButton.
  juce::TooltipWindow tooltipWindow;
  std::unique_ptr<juce::ParameterAttachment> stopAttachment;
+ juce::String lastPresetName;
  void timerCallback()override;
  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ScratchPadAudioProcessorEditor)
 };

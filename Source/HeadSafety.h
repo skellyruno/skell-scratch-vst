@@ -9,6 +9,17 @@ inline double wrap(double p, int size) noexcept {
     p = std::fmod(p, static_cast<double>(size));
     return p < 0.0 ? p + static_cast<double>(size) : p;
 }
+// Audio-thread hot path. A scratch step is bounded to +/-4 samples, so
+// a single branch handles normal wrapping without expensive fmod().
+inline double advance(double position, double step, int size) noexcept {
+    if (size <= 0 || !std::isfinite(position) || !std::isfinite(step)) return 0.0;
+    if (position < 0.0 || position >= size || std::abs(step) >= size)
+        return wrap(position + step, size);
+    position += step;
+    if (position >= size) position -= size;
+    else if (position < 0.0) position += size;
+    return position;
+}
 inline double age(int writePosition, double readPosition, int size) noexcept {
     return wrap(static_cast<double>(writePosition) - readPosition, size);
 }

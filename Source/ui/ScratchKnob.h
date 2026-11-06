@@ -4,7 +4,7 @@
 
 // A plain juce::Component does not provide setTooltip(). The tooltip
 // capability comes from JUCE's SettableTooltipClient mixin.
-class ScratchKnob final : public juce::Component, public juce::SettableTooltipClient {
+class ScratchKnob final : public juce::Component, public juce::SettableTooltipClient, private juce::Timer {
 public:
  explicit ScratchKnob(ScratchPadAudioProcessor&);
  void paint(juce::Graphics&) override;
@@ -12,13 +12,16 @@ public:
  void mouseDrag(const juce::MouseEvent&) override;
  void mouseUp(const juce::MouseEvent&) override;
  void mouseDoubleClick(const juce::MouseEvent&) override;
+ void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+ bool keyPressed(const juce::KeyPress&) override;
  void mouseEnter(const juce::MouseEvent&) override;
  void mouseExit(const juce::MouseEvent&) override;
 private:
  ScratchPadAudioProcessor& processor;
  juce::RangedAudioParameter& parameter;
  std::unique_ptr<juce::ParameterAttachment> attachment;
- float value=100.f,dragValue=100.f, startY=0.f;
+ float value=100.f, displayValue=100.f, dragValue=100.f, startY=0.f;
  bool active=false,hover=false;
  void change(float);
+ void timerCallback() override;
 };

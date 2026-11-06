@@ -24,6 +24,27 @@ inline float evaluate(const std::vector<CurveNode>& nodes, float x) noexcept {
         [](float pos, const CurveNode& node) { return pos < node.x; });
     return segmentValue(*(next - 1), *next, x);
 }
+// Amortised O(1) evaluation when the envelope position travels forward.
+// Each audio block creates its own cursor, so edits never invalidate it.
+// It resets automatically after the cycle wraps, and returns exactly the
+// same polynomial as evaluate() for all finite positions.
+struct MonotonicCursor {
+    explicit MonotonicCursor(const std::vector<CurveNode>* source) noexcept : nodes(source) {}
+    float value(float x) noexcept {
+        if (nodes == nullptr || nodes->empty() || !std::isfinite(x)) return 0.f;
+        if (x < previousX) next = 1;
+        previousX = x;
+        if (x <= nodes->front().x) return nodes->front().y;
+        if (x >= nodes->back().x) return nodes->back().y;
+        while (next + 1 < nodes->size() && x > (*nodes)[next].x) ++next;
+        return segmentValue((*nodes)[next - 1], (*nodes)[next], x);
+    }
+private:
+    const std::vector<CurveNode>* nodes = nullptr;
+    std::size_t next = 1;
+    float previousX = -1.f;
+};
+
 inline void normalize(std::vector<CurveNode>& nodes) {
     if (nodes.size() > 512) nodes.resize(512);
     for (auto& n : nodes) {

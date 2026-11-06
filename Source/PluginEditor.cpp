@@ -24,8 +24,9 @@ ScratchPadAudioProcessorEditor::ScratchPadAudioProcessorEditor(ScratchPadAudioPr
   stopAttachment->setValueAsCompleteGesture(parameter->load()>=.5f?0.f:1.f);
  };
  stopAttachment->sendInitialUpdate();
- footer.loadPreset=[this](int){curve.repaint();}; // FooterBar owns preset application.
- startTimerHz(15);
+ footer.beforePresetChange=[this]{curve.rememberExternalChange();};
+ footer.loadPreset=[this](int){curve.resetSelectionAndRepaint();};
+ startTimerHz(12);
 }
 void ScratchPadAudioProcessorEditor::paint(juce::Graphics& g)
 {
@@ -37,13 +38,11 @@ void ScratchPadAudioProcessorEditor::paint(juce::Graphics& g)
  outer.startNewSubPath(9,3);outer.lineTo(432,3);
  outer.lineTo(438,9);outer.lineTo(438,254);outer.lineTo(432,260);
  outer.lineTo(9,260);outer.lineTo(3,254);outer.lineTo(3,9);outer.closeSubPath();
- g.setColour(Theme::accent.withAlpha(.16f));g.strokePath(outer,juce::PathStrokeType(4.0f));
- g.setColour(Theme::accent.withAlpha(.95f));g.strokePath(outer,juce::PathStrokeType(1.2f));
- g.setColour(Theme::edge.withAlpha(.80f));g.drawRoundedRectangle(7.f,7.f,427.f,248.f,5.f,.75f);
- g.setColour(Theme::accent.withAlpha(.35f));g.drawLine(9.f,209.f,432.f,209.f,1.f);
- // Small registration ticks make the visual frame intentional at every scale.
- g.setColour(Theme::accent.withAlpha(.56f));
- for(int i=0;i<3;++i){float x=15.f+i*8.f;g.drawLine(x,204.f,x+3.f,204.f,.8f);}
+ g.setColour(Theme::accent.withAlpha(.10f));g.strokePath(outer,juce::PathStrokeType(3.f));
+ g.setColour(Theme::accent.withAlpha(.78f));g.strokePath(outer,juce::PathStrokeType(1.f));
+ g.setColour(Theme::edge.withAlpha(.64f));g.drawRoundedRectangle(7.f,7.f,427.f,248.f,5.f,.65f);
+ g.setColour(Theme::edge.withAlpha(.95f));g.drawLine(12.f,208.f,429.f,208.f,.8f);
+
 }
 void ScratchPadAudioProcessorEditor::resized()
 {
@@ -56,4 +55,11 @@ void ScratchPadAudioProcessorEditor::resized()
  stop.setBounds(bounds(318,144,107,49));
  footer.setBounds(bounds(9,215,424,42));
 }
-void ScratchPadAudioProcessorEditor::timerCallback() { footer.repaint(); }
+void ScratchPadAudioProcessorEditor::timerCallback()
+{
+ processor.collectRetiredCurves();
+ if(lastPresetName != processor.getPresetName()){
+  lastPresetName=processor.getPresetName();
+  footer.repaint();
+ }
+}

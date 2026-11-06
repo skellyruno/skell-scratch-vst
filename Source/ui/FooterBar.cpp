@@ -3,19 +3,20 @@
 
 FooterBar::FooterBar(ScratchPadAudioProcessor& p) : processor(p)
 {
- setMouseCursor(juce::MouseCursor::PointingHandCursor);
+ setMouseCursor(juce::MouseCursor::NormalCursor);
  nameEditor.setMultiLine(false);
  nameEditor.setReturnKeyStartsNewLine(false);
  nameEditor.setColour(juce::TextEditor::backgroundColourId,Theme::plot);
  nameEditor.setColour(juce::TextEditor::textColourId,Theme::light);
  nameEditor.setColour(juce::TextEditor::highlightColourId,Theme::accent2);
  nameEditor.setColour(juce::TextEditor::outlineColourId,Theme::accent);
- nameEditor.setFont(Theme::font(11.f));
+ nameEditor.setFont(Theme::uiFont(11.f));
  nameEditor.setVisible(false);
  addChildComponent(nameEditor);
  nameEditor.onReturnKey=[this]{finishRename(true);};
  nameEditor.onEscapeKey=[this]{finishRename(false);};
  nameEditor.onFocusLost=[this]{finishRename(true);};
+ syncPresetIndex();
 }
 juce::Point<float> FooterBar::logical(juce::Point<float> p) const
 {
@@ -25,67 +26,106 @@ void FooterBar::resized()
 {
  nameEditor.setBounds(juce::roundToInt(286.f*getWidth()/designW),juce::roundToInt(21.f*getHeight()/designH),
                       juce::roundToInt(108.f*getWidth()/designW),juce::roundToInt(17.f*getHeight()/designH));
- nameEditor.setFont(Theme::font(11.f*getHeight()/designH));
+ nameEditor.setFont(Theme::uiFont(11.f*getHeight()/designH));
+}
+int FooterBar::hitTest(juce::Point<float> p) const
+{
+ if(p.x>=197.f&&p.x<257.f) return p.y<20.f?1:2;
+ if(p.y<17.f)return -1;
+ if(p.x>=258.f&&p.x<282.f) return 3;
+ if(p.x>=398.f&&p.x<=423.f) return 4;
+ if(p.x>=283.f&&p.x<398.f) return 5;
+ return -1;
+}
+void FooterBar::mouseMove(const juce::MouseEvent& e)
+{
+ const int action=hitTest(logical(e.position));
+ if(action!=hoveredAction){hoveredAction=action;
+  setMouseCursor(action>=0?juce::MouseCursor::PointingHandCursor:juce::MouseCursor::NormalCursor);
+  repaint();}
+}
+void FooterBar::mouseExit(const juce::MouseEvent&)
+{
+ hoveredAction=-1;setMouseCursor(juce::MouseCursor::NormalCursor);repaint();
 }
 void FooterBar::paint(juce::Graphics& g)
 {
  juce::Graphics::ScopedSaveState saved(g);
  g.addTransform(juce::AffineTransform::scale(getWidth()/designW,getHeight()/designH));
- juce::Path panel;
- panel.startNewSubPath(0,3);panel.lineTo(184,3);panel.lineTo(194,21);panel.lineTo(184,39);
- panel.lineTo(0,39);panel.closeSubPath();
- g.setColour(Theme::plot);g.fillPath(panel);
- g.setColour(Theme::accent.withAlpha(.60f));g.strokePath(panel,juce::PathStrokeType(.85f));
- g.setColour(Theme::accent);g.setFont(Theme::font(20.f,true));
- g.drawText("SKELLY",12,6,96,22,juce::Justification::centredLeft);
- g.setColour(Theme::muted);g.setFont(Theme::font(11.f,true));
- g.drawText("/ SCRATCHPAD",100,11,84,14,juce::Justification::centredLeft);
- g.setColour(Theme::accent2);g.drawLine(12,33,116,33,1.f);
- g.setColour(Theme::muted);g.setFont(Theme::font(7.f));
- g.drawText("ENVELOPE ENGINE",119,29,69,9,juce::Justification::centredRight);
- g.setColour(Theme::accent);g.setFont(Theme::font(11.f,true));
- g.drawText("MENU",200,4,56,14,juce::Justification::centredLeft);
- g.drawText("RENAME",200,22,58,14,juce::Justification::centredLeft);
- // Arrow chips are separate target zones for reliable preset navigation.
- g.setColour(Theme::elevated);
- g.fillRoundedRectangle(259.f,20.f,19.f,18.f,4.f);
- g.fillRoundedRectangle(400.f,20.f,19.f,18.f,4.f);
- g.setColour(Theme::accent);g.setFont(Theme::font(16.f,true));
- g.drawText(juce::String::fromUTF8("\xE2\x97\x82"),259,19,19,19,juce::Justification::centred);
- g.drawText(juce::String::fromUTF8("\xE2\x96\xB8"),400,19,19,19,juce::Justification::centred);
- g.setColour(Theme::muted);g.setFont(Theme::font(8.f));
- g.drawText("PRESET",288,5,107,11,juce::Justification::centred);
+ // The logotype has a single intentional diagonal cut; everything else
+ // uses quiet dark surfaces so preset names and controls are legible.
+ juce::Path brand;
+ brand.startNewSubPath(0,3);brand.lineTo(181,3);brand.lineTo(193,21);
+ brand.lineTo(181,39);brand.lineTo(0,39);brand.closeSubPath();
+ g.setColour(Theme::plot);g.fillPath(brand);
+ g.setColour(Theme::edge);g.strokePath(brand,juce::PathStrokeType(.8f));
+ g.setColour(Theme::accent);g.setFont(Theme::font(19.f,true));
+ g.drawText("SKELLY",13,5,97,24,juce::Justification::centredLeft);
+ g.setColour(Theme::muted);g.setFont(Theme::uiFont(9.1f,true));
+ g.drawText("SCRATCHPAD",107,13,77,12,juce::Justification::centredLeft);
+ g.setColour(Theme::accent2.withAlpha(.7f));g.drawLine(13,34,99,34,1.f);
+ // Two small but clearly separated text buttons.
+ for(int action=1;action<=2;++action){
+  const float y=action==1?3.f:22.f;
+  if(hoveredAction==action){g.setColour(Theme::elevated);g.fillRoundedRectangle(197.f,y,59.f,16.f,3.f);}
+  g.setColour(hoveredAction==action?Theme::accent:Theme::muted);
+  g.setFont(Theme::uiFont(10.f,true));
+  g.drawText(action==1?"MENU":"RENAME",201,(int)y,52,16,juce::Justification::centredLeft);
+ }
+ // Compact preset control with crisp arrow hit targets and a proper label.
+ g.setColour(Theme::muted);g.setFont(Theme::uiFont(8.5f,true));
+ g.drawText("FACTORY / USER PRESET",283,3,115,13,juce::Justification::centred);
+ for(int arrow=0;arrow<2;++arrow){
+  const float x=arrow==0?259.f:400.f;
+  const bool hot=hoveredAction==(arrow==0?3:4);
+  g.setColour(hot?Theme::edge:Theme::elevated);
+  g.fillRoundedRectangle(x,19.f,19.f,20.f,4.f);
+  g.setColour(Theme::accent.withAlpha(hot?1.f:.82f));
+  juce::Path chevron;
+  const float cx=x+9.5f,cy=29.f;
+  if(arrow==0){chevron.startNewSubPath(cx+2.f,cy-4.f);chevron.lineTo(cx-2.f,cy);chevron.lineTo(cx+2.f,cy+4.f);}
+  else{chevron.startNewSubPath(cx-2.f,cy-4.f);chevron.lineTo(cx+2.f,cy);chevron.lineTo(cx-2.f,cy+4.f);}
+  g.strokePath(chevron,juce::PathStrokeType(1.8f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
+ }
  if(!renaming){
-  g.setColour(Theme::light);g.setFont(Theme::font(10.5f,true));
-  g.drawFittedText(processor.presetName,283,20,113,19,juce::Justification::centred,1);
+  if(hoveredAction==5){g.setColour(Theme::elevated);g.fillRoundedRectangle(282.f,19.f,116.f,20.f,4.f);}
+  g.setColour(Theme::light);g.setFont(Theme::uiFont(11.f,true));
+  g.drawFittedText(processor.getPresetName(),284,20,112,18,juce::Justification::centred,1);
  }
 }
 void FooterBar::mouseUp(const juce::MouseEvent& e)
 {
- const auto p=logical(e.position);
- if(p.x<195.f)return;
- if(p.x<257.f){if(p.y<=20.f)menu();else rename();return;}
- if(p.y<17.f)return;
- if(p.x>=258.f&&p.x<=283.f){
-  applyPreset((preset+ScratchPresets::count()-1)%ScratchPresets::count());
-  if(loadPreset)loadPreset(preset);
- }else if(p.x>=398.f){
-  applyPreset((preset+1)%ScratchPresets::count());
-  if(loadPreset)loadPreset(preset);
- }else if(p.x>=284.f&&p.x<397.f)rename();
+ switch(hitTest(logical(e.position))){
+  case 1:menu();break;
+  case 2:rename();break;
+  case 3:applyPreset((preset+ScratchPresets::count()-1)%ScratchPresets::count());break;
+  case 4:applyPreset((preset+1)%ScratchPresets::count());break;
+  case 5:rename();break;
+  default:break;
+ }
+}
+void FooterBar::syncPresetIndex()
+{
+ for(int i=0;i<ScratchPresets::count();++i)
+  if(processor.getPresetName()==ScratchPresets::names[(size_t)i]){
+   preset=i;
+   return;
+  }
 }
 void FooterBar::applyPreset(int index)
 {
+ if(beforePresetChange)beforePresetChange();
  preset=juce::jlimit(0,ScratchPresets::count()-1,index);
  processor.setCurve(ScratchPresets::make(preset));
- processor.presetName=ScratchPresets::names[(size_t)preset];
+ processor.setPresetName(ScratchPresets::names[(size_t)preset]);
+ if(loadPreset)loadPreset(preset);
  repaint();
 }
 void FooterBar::rename()
 {
  if(renaming)return;
  renaming=true;
- nameEditor.setText(processor.presetName,juce::dontSendNotification);
+ nameEditor.setText(processor.getPresetName(),juce::dontSendNotification);
  nameEditor.setVisible(true);
  nameEditor.grabKeyboardFocus();
  nameEditor.selectAll();
@@ -96,7 +136,7 @@ void FooterBar::finishRename(bool commit)
  if(!renaming)return;
  if(commit){
   auto name=nameEditor.getText().trim().substring(0,48);
-  if(name.isNotEmpty())processor.presetName=name;
+  if(name.isNotEmpty())processor.setPresetName(name);
  }
  renaming=false;
  nameEditor.setVisible(false);
@@ -127,7 +167,6 @@ void FooterBar::menu()
   if(!safe||command==0)return;
   if(command>=100&&command<100+ScratchPresets::count()){
    safe->applyPreset(command-100);
-   if(safe->loadPreset)safe->loadPreset(command-100);
    return;
   }
   if((command>=40&&command<45)||(command>=50&&command<53)||command==60){
@@ -145,14 +184,15 @@ void FooterBar::menu()
    return;
   }
   if(command==3){
+   if(safe->beforePresetChange)safe->beforePresetChange();
    safe->processor.setCurve({{0.f,1.f,0.f},{1.f,0.f,0.f}});
-   safe->processor.presetName="Init";
+   safe->processor.setPresetName("Init");
    if(safe->loadPreset)safe->loadPreset(-1);
    safe->repaint();return;
   }
   if(command==4){
    juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,"ScratchPad",
-    "Skelly Neon v1.7. Draw dots, drag diamonds to bend, Alt to disable snap, Ctrl+wheel zoom, Ctrl+Z undo. STOP can be automated in your DAW.");
+    "Skelly Neon v1.9. Add or move dots, drag diamond handles to bend, Alt for free editing, Ctrl+wheel to zoom, Ctrl+Z to undo. Scratch Amount 0% is dry; STOP is automatable.");
    return;
   }
   if(command==1||command==2){
@@ -166,11 +206,20 @@ void FooterBar::menu()
     auto file=fc.getResult();if(file==juce::File{})return;
     if(command==1){
      juce::MemoryBlock data;safe->processor.getStateInformation(data);
-     file.withFileExtension(".scratchpad").replaceWithData(data.getData(),data.getSize());
+     if(!file.withFileExtension(".scratchpad").replaceWithData(data.getData(),data.getSize()))
+      juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::WarningIcon,
+          "ScratchPad", "Preset could not be saved. Check folder permissions.");
     }else{
      juce::MemoryBlock data;
-     if(file.loadFileAsData(data))safe->processor.setStateInformation(data.getData(),(int)data.getSize());
-     if(safe->loadPreset)safe->loadPreset(-1);
+     if(file.loadFileAsData(data)){
+      if(safe->beforePresetChange)safe->beforePresetChange();
+      safe->processor.setStateInformation(data.getData(),(int)data.getSize());
+      safe->syncPresetIndex();
+      if(safe->loadPreset)safe->loadPreset(-1);
+     } else {
+      juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::WarningIcon,
+          "ScratchPad", "Preset could not be opened. Check the file and its permissions.");
+     }
     }
     safe->repaint();
    });

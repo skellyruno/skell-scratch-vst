@@ -1,0 +1,8 @@
+build/
+cmake-build-*/
+.vs/
+*.user
+*.suo
+.DS_Store
+*.vst3/
+ScratchPad-Windows-VST3.zip

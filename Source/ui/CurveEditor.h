@@ -4,7 +4,7 @@
 #include <functional>
 #include <vector>
 
-class CurveEditor final : public juce::Component, private juce::Timer {
+class CurveEditor final : public juce::Component, public juce::SettableTooltipClient, private juce::Timer {
 public:
  explicit CurveEditor(ScratchPadAudioProcessor&);
  void paint(juce::Graphics&) override;
@@ -19,15 +19,19 @@ public:
  bool keyPressed(const juce::KeyPress&) override;
  void contextMenu(int hitNode = -1);
  void setPreset(const std::vector<CurveNode>& points);
+ void rememberExternalChange();
+ void resetSelectionAndRepaint();
 private:
  static constexpr float designW = 291.f, designH = 193.f;
  ScratchPadAudioProcessor& processor;
  juce::Rectangle<float> plot{32.f, 27.f, 250.f, 143.f};
  juce::Image gridCache;
- int selected = -1, hovered = -1, bend = -1, hoveredBend = -1;
+ int selected = -1, hovered = -1, dragNode = -1, bend = -1, hoveredBend = -1;
+ int lastRangeIndex = -1, lastLoopIndex = -1;
  float viewStart = 0.f, viewWidth = 1.f, scrollStart = 0.f;
- float lastPosition = -1.f;
- bool draggingScroll = false, didDrag = false;
+ float lastPosition = -1.f, lastSpeed = 9999.f, lastCapture = -1.f;
+ unsigned lastCurveVersion = 0;
+ bool draggingScroll = false, didDrag = false, lastStopped = false;
  std::vector<std::vector<CurveNode>> undoStack, redoStack;
  juce::Point<float> logical(juce::Point<float> pixel) const;
  juce::Point<float> nodePoint(const CurveNode&) const;

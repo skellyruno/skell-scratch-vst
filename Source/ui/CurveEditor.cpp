@@ -6,7 +6,8 @@
 CurveEditor::CurveEditor(ScratchPadAudioProcessor& p) : processor(p)
 {
  setOpaque(true);
- setMouseCursor(juce::MouseCursor::PointingHandCursor);
+ setMouseCursor(juce::MouseCursor::CrosshairCursor);
+ setTooltip("Click to add a point; drag circles to move; drag diamonds to bend; double click to remove; Alt = free, Ctrl + wheel = zoom, Ctrl + Z = undo.");
  setWantsKeyboardFocus(true);
  startTimerHz(60);
 }
@@ -36,52 +37,65 @@ void CurveEditor::paintGrid(juce::Graphics& g)
 {
  const auto whole=juce::Rectangle<float>(0,0,designW,designH);
  g.fillAll(Theme::panel);
- g.setColour(Theme::elevated);
- g.fillRoundedRectangle(whole.reduced(.5f), 6.f);
- g.setColour(Theme::edge);
- g.drawRoundedRectangle(whole.reduced(1.f),6.f,1.f);
+ g.setGradientFill(juce::ColourGradient(Theme::elevated,juce::Point<float>(0,0),
+                                         Theme::panel,juce::Point<float>(designW,designH),false));
+ g.fillRoundedRectangle(whole.reduced(.5f),6.f);
+ g.setColour(Theme::edge.withAlpha(.75f));
+ g.drawRoundedRectangle(whole.reduced(1.f),6.f,.8f);
  g.setColour(Theme::accent);
  g.setFont(Theme::font(10.f,true));
- g.drawText("SPEED / ENVELOPE",11,6,146,14,juce::Justification::centredLeft);
+ g.drawText("SPEED / ENVELOPE",11,6,147,15,juce::Justification::centredLeft);
  g.setColour(Theme::muted);
- g.setFont(Theme::font(8.2f));
- g.drawText("ALT: FREE  /  CTRL: ZOOM",146,6,136,14,juce::Justification::centredRight);
+ g.setFont(Theme::uiFont(8.f,true));
+ // Edit shortcuts live in the tooltip; this space is reserved for playback status.
  g.setColour(Theme::plot);
  g.fillRoundedRectangle(plot,2.f);
  {
   juce::Graphics::ScopedSaveState state(g);
   g.reduceClipRegion(plot.toNearestInt());
-  // A loop spans 4 beat divisions. Subdivisions remain musical when zoomed.
-  for(int i=0;i<=64;++i) {
-   const float x=visibleX(i/64.f);
-   if (x<plot.getX()-1.f || x>plot.getRight()+1.f) continue;
-   const bool beat=i%16==0;
-   g.setColour(Theme::accent.withAlpha(beat?.24f:.095f));
+  // The number of beat lines matches the selected loop length: 1/4 bar
+  // is one beat, while a four-bar loop has 16 beats. At closer zooms,
+  // 1/16-beat divisions become visible without cluttering the full view.
+  constexpr int beatsPerCycle[]{1,2,4,8,16};
+  const int length=juce::jlimit(0,4,juce::roundToInt(
+      processor.apvts.getRawParameterValue("loopLength")->load()));
+  const int steps=beatsPerCycle[length]*(viewWidth<=.32f?16:4);
+  const int stepsPerBeat=steps/beatsPerCycle[length];
+  for(int i=0;i<=steps;++i) {
+   const float x=visibleX(static_cast<float>(i)/steps);
+   if(x<plot.getX()-1.f || x>plot.getRight()+1.f) continue;
+   const bool beat=i%stepsPerBeat==0;
+   const bool bar=i%(4*stepsPerBeat)==0;
+   g.setColour(Theme::accent.withAlpha(bar?.21f:beat?.14f:.037f));
    g.drawVerticalLine(juce::roundToInt(x),plot.getY(),plot.getBottom());
   }
   for(int yStep=-2;yStep<=2;++yStep) {
    const float y=plot.getCentreY()-yStep*plot.getHeight()*.25f;
-   g.setColour(yStep==0?Theme::accent.withAlpha(.38f):Theme::muted.withAlpha(.23f));
+   g.setColour(yStep==0?Theme::accent.withAlpha(.28f):Theme::muted.withAlpha(.15f));
    g.drawHorizontalLine(juce::roundToInt(y),plot.getX(),plot.getRight());
   }
  }
- g.setFont(Theme::font(9.f));
+ g.setFont(Theme::uiFont(9.f,true));
+ const int rangeIndex=juce::jlimit(0,2,juce::roundToInt(processor.apvts.getRawParameterValue("speedRange")->load()));
+ const float multiplier=rangeIndex==0?.5f:rangeIndex==1?1.f:2.f;
  for(int k=-2;k<=2;++k) {
   const float y=plot.getCentreY()-k*plot.getHeight()*.25f;
   g.setColour(k==0?Theme::accent:Theme::muted);
-  g.drawFittedText((k>0?"+":"")+juce::String(k)+"x",3,juce::roundToInt(y-7.f),26,14,juce::Justification::centredRight,1);
+  const float speed=k*multiplier;
+  const auto tick=(speed>0.f?"+":"")+juce::String(speed,rangeIndex==0?1:0)+"x";
+  g.drawFittedText(tick,2,juce::roundToInt(y-7.f),28,14,juce::Justification::centredRight,1);
  }
  g.setColour(Theme::edge);
  g.drawRoundedRectangle(plot,2.f,1.f);
  // True scrollbar: the track depicts the full cycle; the handle is the visible range.
  const auto track=juce::Rectangle<float>(32.f,181.f,250.f,5.f);
- g.setColour(Theme::muted.withAlpha(.22f));
+ g.setColour(Theme::muted.withAlpha(.17f));
  g.fillRoundedRectangle(track,2.5f);
  const auto thumb=juce::Rectangle<float>(track.getX()+viewStart*track.getWidth(),track.getY(),track.getWidth()*viewWidth,track.getHeight());
- g.setColour(Theme::accent.withAlpha(.75f));
+ g.setColour(Theme::accent.withAlpha(.66f));
  g.fillRoundedRectangle(thumb,2.5f);
  g.setColour(Theme::muted);
- g.setFont(Theme::font(7.7f));
+ g.setFont(Theme::uiFont(8.2f,true));
  g.drawText("0",32,171,16,9,juce::Justification::centredLeft);
  g.drawText("1 LOOP",244,171,38,9,juce::Justification::centredRight);
 }
@@ -91,12 +105,51 @@ void CurveEditor::paint(juce::Graphics& g)
  juce::Graphics::ScopedSaveState root(g);
  g.addTransform(juce::AffineTransform::scale(getWidth()/designW,getHeight()/designH));
  if (!gridCache.isValid()) {
-  gridCache = juce::Image(juce::Image::ARGB,(int)designW,(int)designH,true);
+  // Rasterize static text/grid at a larger size than the base logical
+  // layout so JUCE does not magnify a 291x193 bitmap on HiDPI screens.
+  const int rasterScale=juce::jlimit(2,3,juce::roundToInt(
+      std::max(getWidth()/designW,getHeight()/designH)*1.5f));
+  gridCache=juce::Image(juce::Image::ARGB,
+      juce::roundToInt(designW)*rasterScale,
+      juce::roundToInt(designH)*rasterScale,true);
   juce::Graphics bg(gridCache);
+  bg.addTransform(juce::AffineTransform::scale((float)rasterScale));
   paintGrid(bg);
  }
- g.drawImageAt(gridCache,0,0);
+ g.drawImage(gridCache,juce::Rectangle<float>(0.f,0.f,designW,designH));
  const auto data=processor.curveSnapshot();
+ const float capture=processor.captureProgress.load(std::memory_order_relaxed);
+ if(capture>0.f && capture<1.f) {
+  g.setColour(Theme::accent.withAlpha(.12f));
+  g.fillRect(plot.getX()+1.f,plot.getBottom()-2.f,plot.getWidth()-2.f,1.5f);
+  g.setColour(Theme::accent.withAlpha(.65f));
+  g.fillRect(plot.getX()+1.f,plot.getBottom()-2.f,(plot.getWidth()-2.f)*capture,1.5f);
+ }
+ if(data && selected>=0 && selected<(int)data->nodes.size()){
+  const auto& n=data->nodes[(size_t)selected];
+  const int rangeIndex=juce::jlimit(0,2,juce::roundToInt(processor.apvts.getRawParameterValue("speedRange")->load()));
+  const float fullRange=rangeIndex==0?1.f:rangeIndex==1?2.f:4.f;
+  const auto detail="POINT "+juce::String(selected+1)+"    "+juce::String(n.x*100.f,1)+"%    "+
+      juce::String(n.y*fullRange*.5f,2)+"x";
+  g.setColour(Theme::elevated);
+  g.fillRoundedRectangle(134.f,5.f,151.f,17.f,3.f);
+  g.setColour(Theme::accent);
+  g.setFont(Theme::uiFont(8.5f,true));
+  g.drawFittedText(detail,137,7,145,12,juce::Justification::centredRight,1);
+ } else {
+  const float speed=processor.currentSpeed.load(std::memory_order_relaxed);
+  const bool stopped=processor.apvts.getRawParameterValue("stopTrigger")->load()>.5f;
+  juce::String status;
+  if(stopped) status="STOPPED";
+  else if(capture<.99f) status="CAPTURE "+juce::String(juce::roundToInt(capture*100.f))+"%";
+  else if(std::abs(speed)<.03f) status="HOLD  0.00x";
+  else status=(speed<0.f?"REV  ":"FWD  +")+juce::String(speed,2)+"x";
+  g.setColour(Theme::accent.withAlpha(.10f));
+  g.fillRoundedRectangle(166.f,6.f,119.f,15.f,3.f);
+  g.setColour(stopped?Theme::muted:Theme::accent);
+  g.setFont(Theme::uiFont(8.5f,true));
+  g.drawFittedText(status,168,7,114,12,juce::Justification::centredRight,1);
+ }
  if (!data || data->nodes.size()<2) return;
  const auto& nodes=data->nodes;
  juce::Graphics::ScopedSaveState clip(g);
@@ -113,30 +166,31 @@ void CurveEditor::paint(juce::Graphics& g)
    line.lineTo(visibleX(x),plot.getCentreY()-CurveMath::segmentValue(a,b,x)*plot.getHeight()*.25f);
   }
  }
- g.setColour(Theme::accent.withAlpha(.14f));
- g.strokePath(line,juce::PathStrokeType(6.f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
- g.setColour(Theme::accent);
- g.strokePath(line,juce::PathStrokeType(1.8f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
+ g.setColour(Theme::accent.withAlpha(.11f));
+ g.strokePath(line,juce::PathStrokeType(5.f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
+ g.setColour(Theme::accent.withAlpha(.92f));
+ g.strokePath(line,juce::PathStrokeType(1.6f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
  // Visible midpoint grips, so users can discover per-segment tension editing.
  for(size_t i=1;i<nodes.size();++i) {
   auto p=bendPoint(nodes[i-1],nodes[i]);
   if(p.x<plot.getX() || p.x>plot.getRight())continue;
   const bool hot=(int)i-1==hoveredBend || (int)i-1==bend;
-  g.setColour(hot?Theme::accent:Theme::muted.withAlpha(.55f));
+  g.setColour(hot?Theme::white:Theme::accent.withAlpha(.50f));
   juce::Path diamond;
-  const float r=hot?4.1f:2.8f;
+  const float r=hot?4.6f:3.f;
   diamond.startNewSubPath(p.x,p.y-r);diamond.lineTo(p.x+r,p.y);diamond.lineTo(p.x,p.y+r);diamond.lineTo(p.x-r,p.y);diamond.closeSubPath();
   g.fillPath(diamond);
  }
  for(size_t i=0;i<nodes.size();++i) {
   const auto p=nodePoint(nodes[i]);
-  const bool hot=(int)i==hovered||(int)i==selected;
-  const float r=hot?5.2f:3.6f;
+  const bool chosen=(int)i==selected;
+  const bool hot=(int)i==hovered||chosen;
+  const float r=chosen?5.f:hot?4.7f:3.7f;
   g.setColour(Theme::plot);
   g.fillEllipse(p.x-r-1.5f,p.y-r-1.5f,2*r+3,2*r+3);
-  g.setColour(hot?Theme::white:Theme::accent);
+  g.setColour(chosen?Theme::white:hot?Theme::accent.brighter(.20f):Theme::accent);
   g.fillEllipse(p.x-r,p.y-r,2*r,2*r);
-  if(hot){g.setColour(Theme::accent.withAlpha(.48f));g.drawEllipse(p.x-r-2.8f,p.y-r-2.8f,2*r+5.6f,2*r+5.6f,1.f);}
+  if(hot){g.setColour(Theme::accent.withAlpha(chosen?.82f:.40f));g.drawEllipse(p.x-r-2.7f,p.y-r-2.7f,2*r+5.4f,2*r+5.4f,1.f);}
  }
  const float play=processor.playhead.load(std::memory_order_relaxed);
  const float px=visibleX(play);
@@ -168,7 +222,25 @@ int CurveEditor::findBend(juce::Point<float> p,float radius) const
  for(int i=0;i+1<(int)data->nodes.size();++i){float d=bendPoint(data->nodes[(size_t)i],data->nodes[(size_t)i+1]).getDistanceFrom(p);if(d<best){best=d;closest=i;}}
  return closest;
 }
-void CurveEditor::timerCallback(){const auto p=processor.playhead.load(std::memory_order_relaxed);if(p!=lastPosition){lastPosition=p;repaint();}}
+void CurveEditor::timerCallback()
+{
+ const auto p=processor.playhead.load(std::memory_order_relaxed);
+ const auto speed=processor.currentSpeed.load(std::memory_order_relaxed);
+ const auto capture=processor.captureProgress.load(std::memory_order_relaxed);
+ const auto version=processor.curveVersion.load(std::memory_order_relaxed);
+ const bool stopped=processor.apvts.getRawParameterValue("stopTrigger")->load()>.5f;
+ const int loop=juce::jlimit(0,4,juce::roundToInt(processor.apvts.getRawParameterValue("loopLength")->load()));
+ const int range=juce::jlimit(0,2,juce::roundToInt(processor.apvts.getRawParameterValue("speedRange")->load()));
+ if(range!=lastRangeIndex||loop!=lastLoopIndex){
+  lastRangeIndex=range;lastLoopIndex=loop;invalidateGrid();return;
+ }
+ if(p!=lastPosition||std::abs(speed-lastSpeed)>.005f||
+    std::abs(capture-lastCapture)>.005f||version!=lastCurveVersion||stopped!=lastStopped){
+  lastPosition=p;lastSpeed=speed;lastCapture=capture;
+  lastCurveVersion=version;lastStopped=stopped;
+  repaint();
+ }
+}
 void CurveEditor::saveUndo()
 {
  undoStack.push_back(processor.curveSnapshot()->nodes);
@@ -180,25 +252,31 @@ void CurveEditor::undo()
  if(undoStack.empty()) return;
  redoStack.push_back(processor.curveSnapshot()->nodes);
  processor.setCurve(std::move(undoStack.back())); undoStack.pop_back();
- processor.presetName="Custom"; selected=hovered=bend=hoveredBend=-1; repaint();
+ processor.setPresetName("Custom"); selected=hovered=dragNode=bend=hoveredBend=-1; repaint();
 }
 void CurveEditor::redo()
 {
  if(redoStack.empty()) return;
  undoStack.push_back(processor.curveSnapshot()->nodes);
  processor.setCurve(std::move(redoStack.back()));redoStack.pop_back();
- processor.presetName="Custom";selected=hovered=bend=hoveredBend=-1;repaint();
+ processor.setPresetName("Custom");selected=hovered=dragNode=bend=hoveredBend=-1;repaint();
 }
 void CurveEditor::edit(const std::function<void(std::vector<CurveNode>&)>& f,bool customName)
 {
  auto points=processor.curveSnapshot()->nodes;f(points);
  processor.setCurve(std::move(points));
- if(customName)processor.presetName="Custom";
+ if(customName)processor.setPresetName("Custom");
  repaint();
 }
 void CurveEditor::setPreset(const std::vector<CurveNode>& points)
 {
- saveUndo(); processor.setCurve(points); selected=hovered=bend=hoveredBend=-1; repaint();
+ saveUndo(); processor.setCurve(points); resetSelectionAndRepaint();
+}
+void CurveEditor::rememberExternalChange(){saveUndo();}
+void CurveEditor::resetSelectionAndRepaint()
+{
+ selected=hovered=dragNode=bend=hoveredBend=-1;
+ repaint();
 }
 void CurveEditor::mouseMove(const juce::MouseEvent& e)
 {
@@ -206,6 +284,9 @@ void CurveEditor::mouseMove(const juce::MouseEvent& e)
  const auto newNode=findNode(p);
  const auto newBend=newNode<0?findBend(p):-1;
  if(newNode!=hovered||newBend!=hoveredBend){hovered=newNode;hoveredBend=newBend;repaint();}
+ const auto type=(newNode>=0||newBend>=0)?juce::MouseCursor::PointingHandCursor:
+     plot.contains(p)?juce::MouseCursor::CrosshairCursor:juce::MouseCursor::NormalCursor;
+ setMouseCursor(juce::MouseCursor(type));
 }
 void CurveEditor::mouseExit(const juce::MouseEvent&){hovered=hoveredBend=-1;repaint();}
 void CurveEditor::mouseDown(const juce::MouseEvent& e)
@@ -221,14 +302,18 @@ void CurveEditor::mouseDown(const juce::MouseEvent& e)
   return;
  }
  if(!plot.contains(p))return;
- selected=findNode(p);bend=selected<0?findBend(p):-1;didDrag=false;
- if(selected>=0||bend>=0){saveUndo();return;}
+ dragNode=findNode(p);bend=dragNode<0?findBend(p):-1;didDrag=false;
+ if(dragNode>=0){selected=dragNode;repaint();return;}
+ if(bend>=0){selected=-1;repaint();return;}
+ selected=-1;
  if(processor.curveSnapshot()->nodes.size()>=512)return;
  saveUndo();
  auto node=fromPoint(p,!e.mods.isAltDown());
  // Preserve existing points: adding near a snapped X moves/edits the existing point.
  edit([&](auto& points){points.push_back(node);});
  selected=findNode(nodePoint(node),11.f);
+ dragNode=selected;
+ didDrag=true; // insertion and the following drag are one undo gesture
 }
 void CurveEditor::mouseDrag(const juce::MouseEvent& e)
 {
@@ -238,11 +323,12 @@ void CurveEditor::mouseDrag(const juce::MouseEvent& e)
   viewStart=CurveMath::clamp(scrollStart+delta,0.f,1.f-viewWidth);
   invalidateGrid();return;
  }
- if(selected>=0){
+ if(dragNode>=0){
+  if(!didDrag){saveUndo();didDrag=true;}
   auto node=fromPoint(p,!e.mods.isAltDown());
   edit([&](auto& v){
-   if(selected>=(int)v.size())return;
-   const size_t i=(size_t)selected;
+   if(dragNode>=(int)v.size())return;
+   const size_t i=(size_t)dragNode;
    node.tension=v[i].tension;
    if(i==0)node.x=0.f;
    else if(i+1==v.size())node.x=1.f;
@@ -251,8 +337,9 @@ void CurveEditor::mouseDrag(const juce::MouseEvent& e)
     node.x=(lo<=hi)?CurveMath::clamp(node.x,lo,hi):v[i].x;
    }
    v[i]=node;
-  });didDrag=true;
+  });
  }else if(bend>=0){
+  if(!didDrag){saveUndo();didDrag=true;}
   edit([&](auto& v){
    if(bend+1>=(int)v.size())return;
    auto& a=v[(size_t)bend];const auto& b=v[(size_t)bend+1];
@@ -264,7 +351,7 @@ void CurveEditor::mouseDrag(const juce::MouseEvent& e)
 }
 void CurveEditor::mouseUp(const juce::MouseEvent&)
 {
- selected=bend=-1;draggingScroll=false;didDrag=false;repaint();
+ dragNode=bend=-1;draggingScroll=false;didDrag=false;repaint();
 }
 void CurveEditor::mouseDoubleClick(const juce::MouseEvent& e)
 {
@@ -274,10 +361,11 @@ void CurveEditor::mouseDoubleClick(const juce::MouseEvent& e)
  if(index==0 || index+1==(int)processor.curveSnapshot()->nodes.size()) return;
  saveUndo();
  edit([index](auto& v){if(index>0&&index+1<(int)v.size())v.erase(v.begin()+index);});
- selected=bend=-1;
+ selected=dragNode=bend=-1;
 }
 void CurveEditor::mouseWheelMove(const juce::MouseEvent& e,const juce::MouseWheelDetails& w)
 {
+ if(w.deltaY==0.f)return;
  if(e.mods.isCtrlDown()||e.mods.isCommandDown()){
   const float cursor=logical(e.position).x;
   const float ratio=CurveMath::clamp((cursor-plot.getX())/plot.getWidth(),0.f,1.f);
@@ -295,9 +383,32 @@ bool CurveEditor::keyPressed(const juce::KeyPress& key)
  if((m.isCtrlDown()||m.isCommandDown()) && (key.getKeyCode()=='z'||key.getKeyCode()=='Z')){if(m.isShiftDown())redo();else undo();return true;}
  if((m.isCtrlDown()||m.isCommandDown()) && (key.getKeyCode()=='y'||key.getKeyCode()=='Y')){redo();return true;}
  if(key.getKeyCode()==juce::KeyPress::deleteKey||key.getKeyCode()==juce::KeyPress::backspaceKey){
-  if(hovered>0&&hovered+1<(int)processor.curveSnapshot()->nodes.size()){
-   const int at=hovered;saveUndo();edit([at](auto& v){v.erase(v.begin()+at);});hovered=-1;
+  const int at=selected>=0?selected:hovered;
+  if(at>0&&at+1<(int)processor.curveSnapshot()->nodes.size()){
+   saveUndo();edit([at](auto& v){v.erase(v.begin()+at);});selected=hovered=-1;
   }return true;
+ }
+ const int code=key.getKeyCode();
+ if(selected>=0 && (code==juce::KeyPress::leftKey || code==juce::KeyPress::rightKey
+   || code==juce::KeyPress::upKey || code==juce::KeyPress::downKey)){
+  const float dx=m.isShiftDown()?1.f/256.f:1.f/64.f;
+  const float dy=m.isShiftDown()?1.f/32.f:1.f/8.f;
+  const int index=selected;
+  saveUndo();
+  edit([&](auto& v){
+   if(index>=(int)v.size())return;
+   auto& n=v[(size_t)index];
+   if(code==juce::KeyPress::upKey)n.y=CurveMath::clamp(n.y+dy,-2.f,2.f);
+   if(code==juce::KeyPress::downKey)n.y=CurveMath::clamp(n.y-dy,-2.f,2.f);
+   if(index>0&&index+1<(int)v.size()){
+    const float lo=v[(size_t)index-1].x+.0002f;
+    const float hi=v[(size_t)index+1].x-.0002f;
+    if(lo<=hi){
+     if(code==juce::KeyPress::leftKey)n.x=CurveMath::clamp(n.x-dx,lo,hi);
+     if(code==juce::KeyPress::rightKey)n.x=CurveMath::clamp(n.x+dx,lo,hi);
+    }
+   }
+  });return true;
  }
  return false;
 }
@@ -322,7 +433,7 @@ void CurveEditor::contextMenu(int hitNode)
   safe->saveUndo();
   if(command>=100 && command<100+ScratchPresets::count()){
    safe->processor.setCurve(ScratchPresets::make(command-100));
-   safe->processor.presetName=ScratchPresets::names[(size_t)(command-100)];
+   safe->processor.setPresetName(ScratchPresets::names[(size_t)(command-100)]);
   } else safe->edit([command,hitNode](auto& nodes){
    switch(command){
     case 1:nodes={{0,0,0},{1,0,0}};break;
@@ -340,7 +451,6 @@ void CurveEditor::contextMenu(int hitNode)
     case 6:if(hitNode>0 && hitNode+1<(int)nodes.size())nodes.erase(nodes.begin()+hitNode);break;
    }
   });
-  safe->selected=safe->hovered=safe->bend=safe->hoveredBend=-1;
-  safe->repaint();
+  safe->resetSelectionAndRepaint();
  });
 }
