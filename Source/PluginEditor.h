@@ -4,6 +4,7 @@
 #include "ui/ScratchKnob.h"
 #include "ui/FooterBar.h"
 #include "ui/StopButton.h"
+#include "ui/LoopLockButton.h"
 class ScratchPadAudioProcessorEditor:public juce::AudioProcessorEditor,private juce::Timer{
 public:
  explicit ScratchPadAudioProcessorEditor(ScratchPadAudioProcessor&);
@@ -15,10 +16,14 @@ private:
  ScratchKnob knob;
  FooterBar footer;
  StopButton stop;
+ LoopLockButton lock;
  juce::ComponentBoundsConstrainer constrainer;
  // Owns hover tooltips for both ScratchKnob and StopButton.
  juce::TooltipWindow tooltipWindow;
  std::unique_ptr<juce::ParameterAttachment> stopAttachment;
+ std::unique_ptr<juce::ParameterAttachment> lockAttachment;
+ int previousLockState=-1;
+ float previousLockProgress=-1.f;
  juce::String lastPresetName;
  void timerCallback()override;
  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ScratchPadAudioProcessorEditor)

@@ -1,5 +1,15 @@
 # ScratchPad changelog
 
+## v1.13.0 — True locked-loop capture and aggressive scratch fidelity (November 2026)
+- Appends an automatable `loopLock` boolean parameter without changing the prior five parameter IDs or VST3 identity.
+- Captures the **next full input loop** into a dedicated preallocated mono/stereo buffer, never overwriting captured audio while locked. A reset/unlock crossfade safely returns to live input, and loop-length menu changes re-arm capture.
+- Routes high-speed forward and reverse playback through phase- and speed-interpolated 32-tap windowed-sinc input low-pass coefficients to reduce aliasing compared with unconstrained cubic resampling.
+- Retains bounded cubic interpolation for <=1x and blends gradually into band-limited processing for >1x, with no runtime coefficient allocation.
+- Preserves the current waveform/UI layout, adds a compact Loop Lock button and capture progress, and retains DAW Stop automation and all 36 presets.
+- Adds a 6th offline test suite covering immutable loop capture and anti-alias/passband measurements.
+- Remaining release gates: successful Windows JUCE VST3 build, FL Studio automation listening tests, and profiling at 192 kHz / 4x on lower-end computers.
+
+
 ## v1.12.0 — Frozen-signal cleanup and preset polish (November 2026)
 - Adds a 12 Hz wet-only single-pole DC blocker to prevent sustained DC when the speed envelope freezes at 0×. Preserves exact dry audio at 0% Scratch Amount.
 - Automatically reinitializes the filter on engine preparation and after complete dry transitions, with no allocations or locks inside the sample callback.

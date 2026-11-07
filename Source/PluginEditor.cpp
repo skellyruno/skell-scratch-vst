@@ -1,7 +1,8 @@
 #include "PluginEditor.h"
+#include <cmath>
 
 ScratchPadAudioProcessorEditor::ScratchPadAudioProcessorEditor(ScratchPadAudioProcessor& p)
- : AudioProcessorEditor(p), processor(p), curve(p), knob(p), footer(p), tooltipWindow(this, 750)
+ : AudioProcessorEditor(p), processor(p), curve(p), knob(p), footer(p), lock(p), tooltipWindow(this, 750)
 {
  setOpaque(true);
  setSize(441,263);
@@ -13,6 +14,7 @@ ScratchPadAudioProcessorEditor::ScratchPadAudioProcessorEditor(ScratchPadAudioPr
  addAndMakeVisible(knob);
  addAndMakeVisible(footer);
  addAndMakeVisible(stop);
+ addAndMakeVisible(lock);
  stopAttachment = std::make_unique<juce::ParameterAttachment>(
   *processor.apvts.getParameter("stopTrigger"),
   [this](float amount) {
@@ -24,6 +26,17 @@ ScratchPadAudioProcessorEditor::ScratchPadAudioProcessorEditor(ScratchPadAudioPr
   stopAttachment->setValueAsCompleteGesture(parameter->load()>=.5f?0.f:1.f);
  };
  stopAttachment->sendInitialUpdate();
+ lockAttachment=std::make_unique<juce::ParameterAttachment>(
+  *processor.apvts.getParameter("loopLock"),
+  [this](float value) {
+   lock.setToggleState(value>=.5f,juce::dontSendNotification);
+   lock.repaint();
+  },nullptr);
+ lock.onClick=[this] {
+  const auto* param=processor.apvts.getRawParameterValue("loopLock");
+  lockAttachment->setValueAsCompleteGesture(param->load()>=.5f?0.f:1.f);
+ };
+ lockAttachment->sendInitialUpdate();
  footer.beforePresetChange=[this]{curve.rememberExternalChange();};
  footer.loadPreset=[this](int){curve.resetSelectionAndRepaint();};
  startTimerHz(12);
@@ -52,12 +65,18 @@ void ScratchPadAudioProcessorEditor::resized()
  };
  curve.setBounds(bounds(14,8,291,193));
  knob.setBounds(bounds(314,9,114,125));
- stop.setBounds(bounds(318,144,107,49));
+ stop.setBounds(bounds(318,140,107,38));
+ lock.setBounds(bounds(318,181,107,25));
  footer.setBounds(bounds(9,215,424,42));
 }
 void ScratchPadAudioProcessorEditor::timerCallback()
 {
  processor.collectRetiredCurves();
+ const int state=processor.lockedStatus.load(std::memory_order_relaxed);
+ const float progress=processor.lockedProgress.load(std::memory_order_relaxed);
+ if(state!=previousLockState || std::abs(progress-previousLockProgress)>.015f){
+  previousLockState=state;previousLockProgress=progress;lock.repaint();
+ }
  const auto name=processor.getPresetName();
  if(lastPresetName != name){
   lastPresetName=name;

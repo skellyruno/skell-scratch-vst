@@ -30,6 +30,8 @@ private:
  int lastRangeIndex = -1, lastLoopIndex = -1;
  float viewStart = 0.f, viewWidth = 1.f, scrollStart = 0.f;
  float lastPosition = -1.f, lastSpeed = 9999.f, lastCapture = -1.f;
+ float lastLockProgress=-1.f;
+ int lastLockStatus=-1;
  unsigned lastCurveVersion = 0;
  bool draggingScroll = false, didDrag = false, lastStopped = false;
  struct UndoEntry { std::vector<CurveNode> nodes; juce::String presetName; };

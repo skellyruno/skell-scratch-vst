@@ -158,7 +158,10 @@ void CurveEditor::paint(juce::Graphics& g)
    const float speed=processor.currentSpeed.load(std::memory_order_relaxed);
   const bool stopped=processor.apvts.getRawParameterValue("stopTrigger")->load()>.5f;
   juce::String status;
+  const int lockStatus=processor.lockedStatus.load(std::memory_order_relaxed);
   if(stopped) status="STOPPED";
+  else if(lockStatus==1) status="LOCK "+juce::String(juce::roundToInt(processor.lockedProgress.load()*100.f))+"%";
+  else if(lockStatus==2) status="LOOP LOCKED";
   else if(capture<.99f) status="CAPTURE "+juce::String(juce::roundToInt(capture*100.f))+"%";
   else if(std::abs(speed)<.03f) status="HOLD  0.00x";
   else status=(speed<0.f?"REV  ":"FWD  +")+juce::String(speed,2)+"x";
@@ -271,6 +274,8 @@ void CurveEditor::timerCallback()
  const auto speed=processor.currentSpeed.load(std::memory_order_relaxed);
  const auto capture=processor.captureProgress.load(std::memory_order_relaxed);
  const auto version=processor.curveVersion.load(std::memory_order_relaxed);
+ const auto lockState=processor.lockedStatus.load(std::memory_order_relaxed);
+ const auto lockProgress=processor.lockedProgress.load(std::memory_order_relaxed);
  const bool stopped=processor.apvts.getRawParameterValue("stopTrigger")->load()>.5f;
  const int loop=juce::jlimit(0,4,juce::roundToInt(processor.apvts.getRawParameterValue("loopLength")->load()));
  const int range=juce::jlimit(0,2,juce::roundToInt(processor.apvts.getRawParameterValue("speedRange")->load()));
@@ -278,9 +283,11 @@ void CurveEditor::timerCallback()
   lastRangeIndex=range;lastLoopIndex=loop;invalidateGrid();return;
  }
  if(p!=lastPosition||std::abs(speed-lastSpeed)>.005f||
-    std::abs(capture-lastCapture)>.005f||version!=lastCurveVersion||stopped!=lastStopped){
+    std::abs(capture-lastCapture)>.005f||version!=lastCurveVersion||stopped!=lastStopped||
+    lockState!=lastLockStatus||std::abs(lockProgress-lastLockProgress)>.005f){
   lastPosition=p;lastSpeed=speed;lastCapture=capture;
   lastCurveVersion=version;lastStopped=stopped;
+  lastLockStatus=lockState;lastLockProgress=lockProgress;
   repaint();
  }
 }

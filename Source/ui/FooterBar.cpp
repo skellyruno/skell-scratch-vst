@@ -170,6 +170,7 @@ void FooterBar::menu()
  for(int i=0;i<3;++i)ranges.addItem(50+i,rangeNames[i],true,i==currentRange);
  m.addSubMenu("Speed range",ranges);
  m.addItem(60,"Tempo sync",true,processor.apvts.getRawParameterValue("sync")->load()>.5f);
+ m.addItem(61,"Loop Lock (capture next loop)",true,processor.apvts.getRawParameterValue("loopLock")->load()>.5f);
  m.addSeparator();
  juce::Component::SafePointer<FooterBar> safe(this);
  m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this),[safe](int command){
@@ -178,14 +179,14 @@ void FooterBar::menu()
    safe->applyPreset(command-100);
    return;
   }
-  if((command>=40&&command<45)||(command>=50&&command<53)||command==60){
+  if((command>=40&&command<45)||(command>=50&&command<53)||command==60||command==61){
    const bool isLength=command>=40&&command<45;
    const bool isRange=command>=50&&command<53;
-   const char* id=isLength?"loopLength":isRange?"speedRange":"sync";
+   const char* id=isLength?"loopLength":isRange?"speedRange":command==60?"sync":"loopLock";
    auto* parameter=safe->processor.apvts.getParameter(id);
    if(parameter){
     const float requested=isLength?(float)(command-40):isRange?(float)(command-50):
-       (safe->processor.apvts.getRawParameterValue("sync")->load()>.5f?0.f:1.f);
+       (safe->processor.apvts.getRawParameterValue(id)->load()>.5f?0.f:1.f);
     parameter->beginChangeGesture();
     parameter->setValueNotifyingHost(parameter->convertTo0to1(requested));
     parameter->endChangeGesture();
@@ -201,7 +202,7 @@ void FooterBar::menu()
   }
   if(command==4){
    juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,"ScratchPad",
-    "Skelly Neon v1.12. Add or move dots, drag diamond handles to bend, Alt for free editing, Ctrl+wheel to zoom, Ctrl+Z to undo. Scratch Amount 0% is dry; STOP is automatable.");
+    "Skelly Neon v1.13. Add or move dots, drag diamond handles to bend, Alt for free editing, Ctrl+wheel to zoom, Ctrl+Z to undo. Scratch Amount 0% is dry; STOP is automatable.");
    return;
   }
   if(command==1||command==2){

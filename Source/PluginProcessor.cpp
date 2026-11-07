@@ -15,7 +15,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout ScratchPadAudioProcessor::ma
  p.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"stopTrigger",1},"Stop",false));
  p.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"loopLength",1},"Loop Length",juce::StringArray{"1/4","1/2","1 bar","2 bars","4 bars"},2));
  p.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"speedRange",1},"Speed Range",juce::StringArray{"+/-1x","+/-2x","+/-4x"},1));
- p.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"sync",1},"Tempo Sync",true)); return p;
+ p.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"sync",1},"Tempo Sync",true));
+ // Appended rather than renumbering existing host automation / session state.
+ p.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"loopLock",1},"Loop Lock",false));
+ return p;
 }
 bool ScratchPadAudioProcessor::isBusesLayoutSupported(const BusesLayout& layout) const
 {
@@ -31,7 +34,16 @@ void ScratchPadAudioProcessor::prepareToPlay(double sr, int block)
  // 4 bars at 20 BPM + a guard region. Allocated on prepare, never on audio callback.
  const auto capacity=(int)std::ceil(sampleRate*60.0/20.0*16.0)+std::max(1,block)+8;
  ring.setSize(std::max(1,getTotalNumInputChannels()),capacity);
+ capturedLoop.setSize(std::max(1,getTotalNumInputChannels()),capacity);
  ring.clear();
+ capturedLoop.clear();
+ lockCapture.reset(); previousLockRequest=false; rearmLock=false;
+ lockedLengthChoice=-1;
+ lockedReadPos=lockedOldReadPos=0.0;
+ lockedTransitionActive=false;lockedTransitionRemaining=0;
+ lockedStatus.store(0,std::memory_order_relaxed);
+ lockedProgress.store(0.f,std::memory_order_relaxed);
+ bandlimited.prepare();
  writePos=0;readPos=0;transitionReadPos=0;recordedSamples=0;
  captureReady=false;
  phaseSamples=0;loopSamples=std::min(capacity-8,(int)(sampleRate*2.0));
@@ -49,6 +61,8 @@ void ScratchPadAudioProcessor::prepareToPlay(double sr, int block)
  stopGain.reset(sampleRate,.002);
  captureGain.reset(sampleRate,.002);
  captureGain.setCurrentAndTargetValue(0.f);
+ lockBlend.reset(sampleRate,.008);
+ lockBlend.setCurrentAndTargetValue(0.f);
  stopGain.setCurrentAndTargetValue(
      apvts.getRawParameterValue("stopTrigger")->load() > .5f ? 0.f : 1.f);
  currentSpeed.store(0.f, std::memory_order_relaxed);
@@ -76,24 +90,39 @@ void ScratchPadAudioProcessor::collectRetiredCurves()
  if (activeAudioReaders.load(std::memory_order_seq_cst) == 0)
      retiredCurves.clear();
 }
-float ScratchPadAudioProcessor::interpolate(int ch,double pos) const
+float ScratchPadAudioProcessor::interpolate(int ch,double pos,float speed,bool locked) const
 {
- const int n=ring.getNumSamples();
+ const int n=locked?lockCapture.length:ring.getNumSamples();
+ if (n<4) return 0.f;
+ const auto& data=locked?capturedLoop:ring;
+ // The input history and the immutable locked loop have separate wrap and
+ // validity rules. Lock capture only becomes readable once fully recorded.
+ auto tap=[&](int idx)->float
+ {
+  if(idx<0) idx=(idx%n+n)%n;
+  else if(idx>=n)idx%=n;
+  if(!locked) {
+   const int age=writePos>=idx?writePos-idx:writePos-idx+n;
+   if(age>=recordedSamples) return 0.f;
+  }
+  return data.getSample(ch,idx);
+ };
  const auto integer=(int)std::floor(pos);
  const float t=(float)(pos-integer);
- auto at=[&](int idx)->float
- {
-  if(idx<0)idx+=n;
-  else if(idx>=n)idx-=n;
-  // An interpolator tap may precede the first recorded sample. Never
-  // synthesize from unrecorded buffer memory or pre-roll zeros indefinitely.
-  const int age=writePos>=idx?writePos-idx:writePos-idx+n;
-  if(age>=recordedSamples) return 0.f;
-  return ring.getSample(ch,idx);
+ const auto cubic=[&] {
+  return ScratchDSP::hermiteBounded(tap(integer-1),tap(integer),
+                                   tap(integer+1),tap(integer+2),t);
  };
- return ScratchDSP::hermiteBounded(at(integer-1),at(integer),
-                                   at(integer+1),at(integer+2),t);
+ const float rate=std::abs(speed);
+ if(rate<=1.f) return cubic();
+ const float filtered=bandlimited.sample(pos,n,rate,tap);
+ if(rate>=1.12f) return filtered;
+ // Smoothly introduce anti-alias filtering at >1x speed, avoiding a sudden
+ // timbral jump as playback speed crosses normal speed.
+ return ScratchDSP::mixDryWet(cubic(),filtered,
+                         ScratchDSP::smoothstep((rate-1.f)/.12f));
 }
+
 void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce::MidiBuffer&)
 {
  juce::ScopedNoDenormals guard;
@@ -104,6 +133,7 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
  const auto* rangeParam=apvts.getRawParameterValue("speedRange");
  const auto* syncParam=apvts.getRawParameterValue("sync");
  const auto* stopParam=apvts.getRawParameterValue("stopTrigger");
+ const auto* lockParam=apvts.getRawParameterValue("loopLock");
  double tempo=120.0;
  bool hostPlaying=false;
  bool hostStateAvailable=false;
@@ -167,6 +197,12 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
   readPos=(double)((writePos-loopSamples+ringSize)%ringSize);
   transitionRemaining=fadeSamples;
   transitionActive=true;
+  if(lockCapture.ready) {
+   lockedOldReadPos=lockedReadPos;
+   lockedReadPos=(double)phaseSamples/std::max(1,loopSamples)*lockCapture.length;
+   lockedTransitionRemaining=fadeSamples;
+   lockedTransitionActive=true;
+  }
  }
  amount.setTargetValue(amountParam->load()*.01f);
  const float requestedRange=rangeParam->load()<.5f?1.f:rangeParam->load()<1.5f?2.f:4.f;
@@ -179,6 +215,15 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
  float latestSpeed = 0.f;
  const int channels=std::min(buf.getNumChannels(),ring.getNumChannels());
  const bool stopped=stopParam->load()>.5f;
+ const bool lockRequested=lockParam->load()>.5f;
+ // Turning lock ON captures a fresh incoming loop (rather than copying an
+ // inconsistent live ring). Switching it OFF fades back to live audio.
+ if(lockRequested && !previousLockRequest)rearmLock=true;
+ if(!lockRequested){rearmLock=false;lockCapture.cancel();lockBlend.setTargetValue(0.f);}
+ if(lockRequested && lockCapture.length>0 && lockedLengthChoice!=lengthChoice)
+  rearmLock=true;
+ if(rearmLock)lockBlend.setTargetValue(0.f);
+ previousLockRequest=lockRequested;
  stopGain.setTargetValue(stopped?0.f:1.f);
  for(int i=0;i<buf.getNumSamples();++i)
  {
@@ -188,6 +233,28 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
    ring.setSample(ch,writePos,std::isfinite(input)?input:0.f);
   }
   recordedSamples=std::min(recordedSamples+1,ringSize);
+  // Never write into captured-loop audio while it is being heard. First
+  // crossfade out of any prior lock, then capture a fresh complete loop.
+  if(lockRequested && rearmLock && lockBlend.getCurrentValue()<.000001f)
+  {
+   lockCapture.start(loopSamples,capturedLoop.getNumSamples());
+   lockedLengthChoice=lengthChoice;
+   lockedReadPos=lockedOldReadPos=0.0;
+   lockedTransitionActive=false;lockedTransitionRemaining=0;
+   rearmLock=false;
+  }
+  if(lockRequested && lockCapture.recording)
+  {
+   const int index=lockCapture.nextWriteIndex();
+   for(int ch=0;ch<channels;++ch)
+    capturedLoop.setSample(ch,index,ring.getSample(ch,writePos));
+   if(lockCapture.advance())
+   {
+    lockedReadPos=0.0;
+    lockedTransitionActive=false;
+    lockBlend.setTargetValue(1.f);
+   }
+  }
   const bool fullLoop=HeadSafety::hasFullCapture(recordedSamples,loopSamples);
   if(fullLoop != captureReady)
   {
@@ -225,6 +292,7 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
   latestSpeed=speed;
   const float gain=stopGain.getNextValue();
   const float wetAmount=smoothedAmount*captureGain.getNextValue();
+  const float capturedMix=lockBlend.getNextValue();
   const bool needWet=wetAmount>0.000001f;
   const float crossfade=transitionActive
     ?1.f-(float)transitionRemaining/(float)fadeSamples:1.f;
@@ -241,11 +309,24 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
    float output=dry;
    if(needWet)
    {
-    const float newest=interpolate(ch,readPos);
-    const float older=transitionActive?interpolate(ch,transitionReadPos):0.f;
-    const float wet=older*oldGain+newest*newGain;
-    // At 0x the read head emits a constant sample. Block sustained DC in
-    // the wet path only; the dry path keeps exact zero-latency passthrough.
+    float live=0.f;
+    if(capturedMix<.999999f) {
+     const float newest=interpolate(ch,readPos,speed,false);
+     const float older=transitionActive?interpolate(ch,transitionReadPos,speed,false):0.f;
+     live=older*oldGain+newest*newGain;
+    }
+    float frozen=0.f;
+    if(capturedMix>.000001f && lockCapture.ready) {
+     const float newest=interpolate(ch,lockedReadPos,speed,true);
+     if(lockedTransitionActive) {
+      const float older=interpolate(ch,lockedOldReadPos,speed,true);
+      const float t=ScratchDSP::smoothstep(1.f-
+           (float)lockedTransitionRemaining/(float)fadeSamples);
+      frozen=ScratchDSP::mixDryWet(older,newest,t);
+     } else frozen=newest;
+    }
+    const float wet=ScratchDSP::mixDryWet(live,frozen,capturedMix);
+    // DC protection remains wet-only; exact dry passthrough is unchanged.
     output=ScratchDSP::mixDryWet(dry,wetDcBlockers[static_cast<size_t>(ch)].process(wet),wetAmount);
    }
    else if(wetAmount<=0.000001f)
@@ -257,6 +338,13 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
   }
   for(int ch=channels;ch<buf.getNumChannels();++ch)buf.clear(ch,i,1);
   readPos=HeadSafety::advance(readPos,speed,ringSize);
+  if(lockCapture.ready) {
+   lockedReadPos=HeadSafety::advance(lockedReadPos,speed,lockCapture.length);
+   if(lockedTransitionActive){
+    lockedOldReadPos=HeadSafety::advance(lockedOldReadPos,speed,lockCapture.length);
+    if(--lockedTransitionRemaining<=0)lockedTransitionActive=false;
+   }
+  }
   if(transitionActive)
   {
    transitionReadPos=HeadSafety::advance(transitionReadPos,speed,ringSize);
@@ -266,6 +354,12 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
   if(!stopped && ++phaseSamples>=loopSamples)
   {
    phaseSamples=0;
+   if(lockCapture.ready && lockBlend.getCurrentValue()>.000001f) {
+    lockedOldReadPos=lockedReadPos;
+    lockedReadPos=0.0;
+    lockedTransitionRemaining=fadeSamples;
+    lockedTransitionActive=true;
+   }
    transitionReadPos=readPos;
    readPos=(double)((writePos-loopSamples+ringSize)%ringSize);
    transitionRemaining=fadeSamples;
@@ -276,6 +370,9 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
  currentSpeed.store(latestSpeed,std::memory_order_relaxed);
  captureProgress.store(juce::jlimit(0.f,1.f,
      (float)recordedSamples/std::max(1,loopSamples)),std::memory_order_relaxed);
+ const int status=lockRequested?(lockCapture.ready?2:1):0;
+ lockedStatus.store(status,std::memory_order_relaxed);
+ lockedProgress.store(lockCapture.progress(),std::memory_order_relaxed);
  activeAudioReaders.fetch_sub(1,std::memory_order_seq_cst);
 }
 juce::String ScratchPadAudioProcessor::getPresetName() const

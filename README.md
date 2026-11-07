@@ -1,6 +1,27 @@
-# ScratchPad v1.12 — Skelly Neon Pro
+# ScratchPad v1.13 — Skelly Neon Pro
 
 JUCE 8/C++17 scratch-speed VST3 and Standalone effect, with an original vector UI, live circular recording buffer, two-head crossfades, and a freely editable speed envelope.
+
+## What's new in v1.13
+
+### True Loop Lock (new automatable control)
+
+- **LOOP LOCK** below STOP starts recording the **next complete input loop** into a dedicated, preallocated stereo/mono capture buffer. The button shows capture progress and **HELD** when ready.
+- Once ready, the captured buffer is **immutable**: subsequent live input can never overwrite it, even with a 0x hold, long reverse play, or extended scratching. The live recording ring keeps running independently.
+- Lock/unlock uses an 8 ms equal-gain morph, and loop-boundary/host-seek playback jumps get a 2 ms secondary read-head fade. Changing loop-length choice while locked re-arms a fresh capture after fading to live.
+- Both the new **loopLock** boolean and the original **stopTrigger** boolean can be automated in FL Studio. Previously saved sessions retain all five original parameter IDs; loopLock defaults off in older sessions.
+- The lock-mode parameter is saved with the project, **but not the captured audio**. Reopening a project with lock enabled captures fresh incoming audio rather than loading stale audio from project state. Don't rely on the lock buffer surviving an offline project reload.
+
+### High-speed anti-alias interpolation
+
+- Forward and reverse speeds **above 1x** interpolate via a precomputed **32-tap, 64-phase Blackman-windowed sinc** with multiple speed-specific low-pass banks (1x/1.5x/2x/3x/4x). Smooth crossfades prevent tonal switches around 1x.
+- Low-speed motion continues using bounded cubic Hermite interpolation to reduce CPU usage. High-speed processing is allocation-free in the callback; sinc tables are prepared once in `prepareToPlay`.
+- New JUCE-free regression tests measure **9 kHz alias attenuation at 4x**, **1 kHz passband preservation**, fractional interpolation stability, and immutable loop storage across repeated input writes.
+
+### Compact UI
+
+- Preserves the **441×263** Skelly neon-green design with a compact Loop Lock button below Stop, a capture-progress indicator, and a **LOOP LOCKED** status in the envelope display.
+- Existing 36 presets, draggable curve dots and bend handles, and reset/undo/redo workflow remain available.
 
 ## What's new in v1.12
 
