@@ -2,6 +2,7 @@
 #include "PluginEditor.h"
 #include "HeadSafety.h"
 #include "DSPHelpers.h"
+#include "LoopTiming.h"
 #include <cmath>
 #include <algorithm>
 namespace {
@@ -38,6 +39,8 @@ void ScratchPadAudioProcessor::prepareToPlay(double sr, int block)
  lastHostPlaying=false;hostTransportKnown=false;expectedHostSample=0;
  amount.reset(sampleRate,.015);
  speedRangeSmoothing.reset(sampleRate,.012);
+ speedSlew.prepare(sampleRate, .0004);
+ speedSlew.reset();
  { const auto raw=apvts.getRawParameterValue("speedRange")->load();
    speedRangeSmoothing.setCurrentAndTargetValue(raw<.5f?1.f:raw<1.5f?2.f:4.f); }
  amount.setCurrentAndTargetValue(apvts.getRawParameterValue("scratchAmount")->load()*.01f);
@@ -101,12 +104,17 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
  bool hostPlaying=false;
  bool hostStateAvailable=false;
  bool hostDiscontinuity=false;
+ bool hostPpqKnown=false;
+ double hostPpq=0.0;
  if(auto* ph=getPlayHead())
   if(auto info=ph->getPosition())
   {
    if(auto v=info->getBpm())
     if(std::isfinite(*v)&&*v>0.0)tempo=juce::jlimit(20.0,400.0,*v);
    hostPlaying=info->getIsPlaying();
+   if (auto ppq=info->getPpqPosition()) {
+    if (std::isfinite(*ppq)) {hostPpq=*ppq;hostPpqKnown=true;}
+   }
    hostStateAvailable=true;
    if(auto sample=info->getTimeInSamples())
    {
@@ -126,8 +134,9 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
  bpm.store(tempo,std::memory_order_relaxed);
  static constexpr double bars[]={.25,.5,1.0,2.0,4.0};
  const double beat=60.0/(syncParam->load()>.5f?tempo:120.0);
+ const int lengthChoice=juce::jlimit(0,4,(int)lengthParam->load());
  const int requested=juce::jlimit(8,ringSize-8,
-  (int)std::round(sampleRate*beat*4.0*bars[juce::jlimit(0,4,(int)lengthParam->load())]));
+  (int)std::round(sampleRate*beat*4.0*bars[lengthChoice]));
  if(requested!=loopSamples)
  {
   const int previousLoopLength=loopSamples;
@@ -146,7 +155,10 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
  }
  if(hostDiscontinuity && loopSamples>0)
  {
-  phaseSamples=0;
+  // Resume at the correct musical point when the host supplies PPQ.
+  // For unsynced mode or missing PPQ, restart at the beginning.
+  phaseSamples=(syncParam->load()>.5f && hostPpqKnown)
+      ? ScratchTiming::phaseFromPpq(hostPpq,loopSamples,lengthChoice) : 0;
   transitionReadPos=readPos;
   readPos=(double)((writePos-loopSamples+ringSize)%ringSize);
   transitionRemaining=fadeSamples;
@@ -188,7 +200,9 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
   const float x=(float)phaseSamples/std::max(1,loopSamples);
   const float smoothedAmount=amount.getNextValue();
   const float speedMultiplier=speedRangeSmoothing.getNextValue();
-  const float speed=stopped?0.f:curveCursor.value(x)*smoothedAmount*speedMultiplier*.5f;
+  const float targetSpeed=curveCursor.value(x)*smoothedAmount*speedMultiplier*.5f;
+  const float speed=stopped?0.f:speedSlew.process(targetSpeed);
+  if (stopped) speedSlew.reset();
   latestSpeed=speed;
   const float gain=stopGain.getNextValue();
   const float crossfade=transitionActive
@@ -218,7 +232,7 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
    transitionReadPos=HeadSafety::advance(transitionReadPos,speed,ringSize);
    if(--transitionRemaining<=0)transitionActive=false;
   }
-  writePos=(writePos+1)%ringSize;
+  if (++writePos >= ringSize) writePos=0;
   if(!stopped && ++phaseSamples>=loopSamples)
   {
    phaseSamples=0;

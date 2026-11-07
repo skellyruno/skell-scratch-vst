@@ -3,6 +3,25 @@
 #include <cmath>
 
 namespace ScratchDSP {
+// Gentle, sample-rate-independent speed slewing prevents zipper clicks when
+// a node moves or the host automates an abrupt curve change. It does not
+// allocate or call into JUCE from the audio callback.
+struct SpeedSlew {
+    double coefficient = 1.0;
+    float current = 0.f;
+    void prepare(double sampleRate, double timeSeconds = 0.0004) noexcept {
+        if (!std::isfinite(sampleRate) || sampleRate <= 0.0) { coefficient = 1.0; return; }
+        const double samples = std::max(1.0, sampleRate * std::max(timeSeconds, 1.e-6));
+        coefficient = 1.0 - std::exp(-1.0 / samples);
+    }
+    void reset(float value = 0.f) noexcept { current = std::isfinite(value) ? value : 0.f; }
+    float process(float target) noexcept {
+        if (!std::isfinite(target)) target = 0.f;
+        current += static_cast<float>(coefficient * (static_cast<double>(target) - current));
+        if (!std::isfinite(current)) current = 0.f;
+        return current;
+    }
+};
 // Equal-gain blends avoid boosting two correlated read heads. A linear
 // blend also guarantees exact input passthrough at a zero scratch amount.
 inline float mixDryWet(float dry, float wet, float amount) noexcept {

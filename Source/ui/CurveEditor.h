@@ -32,7 +32,8 @@ private:
  float lastPosition = -1.f, lastSpeed = 9999.f, lastCapture = -1.f;
  unsigned lastCurveVersion = 0;
  bool draggingScroll = false, didDrag = false, lastStopped = false;
- std::vector<std::vector<CurveNode>> undoStack, redoStack;
+ struct UndoEntry { std::vector<CurveNode> nodes; juce::String presetName; };
+ std::vector<UndoEntry> undoStack, redoStack;
  juce::Point<float> logical(juce::Point<float> pixel) const;
  juce::Point<float> nodePoint(const CurveNode&) const;
  juce::Point<float> bendPoint(const CurveNode&, const CurveNode&) const;

@@ -1,8 +1,17 @@
-# ScratchPad v1.9 — Skelly Neon Pro
+# ScratchPad v1.10 — Skelly Neon Pro
 
 JUCE 8/C++17 scratch-speed VST3 and Standalone effect, with an original vector UI, live circular recording buffer, two-head crossfades, and a freely editable speed envelope.
 
-## What's new in v1.9
+## What's new in v1.10
+
+- **Host PPQ alignment:** synced transport restart and timeline seeks resume at the correct musical phase when the host supplies PPQ; unsynced mode resets to the first point.
+- **Beat-aware editing:** snapped nodes and arrow nudging track the selected loop length. The grid is 1/16 beat; hold Alt to bypass snapping.
+- **Smooth scratches:** a 0.4 ms sample-rate-independent speed slew reduces zipper noise from live node edits and automation.
+- **Predictable undo:** restores saved preset names alongside node positions.
+- **CPU:** branch-based write-head wrapping instead of per-sample modulo.
+- **Tests:** five JUCE-free suites now include PPQ timing and speed-slew checks.
+
+## What shipped in v1.9
 
 - **0% Scratch Amount** now gives clean, zero-latency input rather than freezing playback. Intermediate values blend dry and scratched audio, and the wet path smoothly fades in after capture begins.
 - **Audio engine:** bounded Hermite interpolation is now independently regression-tested, non-finite input samples are sanitized before recording, and audio-thread work is reduced using a monotonic curve cursor plus branch-based ring wrapping.
@@ -31,7 +40,7 @@ On non-Windows generators, omit `-A x64`. Supply `-DJUCE_PATH=/path/to/JUCE` if 
 | Click empty graph space | Add a node exactly where you click (subject to snap) |
 | Drag circle | Change a node's time and speed; endpoint times stay fixed at 0 and 1 |
 | Drag diamond between circles | Bend that curve segment's shape (tension) |
-| Hold Alt while editing | Bypass 1/64-time and 1/8-speed snapping |
+| Hold Alt while editing | Bypass beat-aware 1/16-beat and 1/8-speed snapping |
 | Double-click node | Delete an interior node; endpoints cannot be deleted |
 | Right-click graph | Reset, invert, reverse, stretch, undo/redo, factory presets; right-click interior node to delete |
 | Ctrl+wheel | Zoom horizontally toward cursor position (up to 8x) |

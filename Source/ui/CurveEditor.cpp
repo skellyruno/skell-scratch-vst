@@ -1,5 +1,6 @@
 #include "CurveEditor.h"
 #include "PresetBank.h"
+#include "../LoopTiming.h"
 #include <algorithm>
 #include <cmath>
 
@@ -7,7 +8,7 @@ CurveEditor::CurveEditor(ScratchPadAudioProcessor& p) : processor(p)
 {
  setOpaque(true);
  setMouseCursor(juce::MouseCursor::CrosshairCursor);
- setTooltip("Click to add a point; drag circles to move; drag diamonds to bend; double click to remove; Alt = free, Ctrl + wheel = zoom, Ctrl + Z = undo.");
+ setTooltip("Click to add points; drag circles or diamond bend handles. Snap = 1/16 beat, Alt = free, Ctrl+wheel = zoom, Ctrl+Z = undo.");
  setWantsKeyboardFocus(true);
  startTimerHz(60);
 }
@@ -29,7 +30,12 @@ CurveNode CurveEditor::fromPoint(juce::Point<float> p, bool snap) const
 {
  float x = CurveMath::clamp(viewStart+(p.x-plot.getX())/plot.getWidth()*viewWidth,0.f,1.f);
  float y = CurveMath::clamp((plot.getCentreY()-p.y)*4.f/plot.getHeight(),-2.f,2.f);
- if (snap) { x=std::round(x*64.f)/64.f; y=std::round(y*8.f)/8.f; }
+ if (snap) {
+  const int length=juce::jlimit(0,4,juce::roundToInt(
+      processor.apvts.getRawParameterValue("loopLength")->load()));
+  x=ScratchTiming::snapNormalized(x,length);
+  y=std::round(y*8.f)/8.f;
+ }
  return {x,y,0.f};
 }
 void CurveEditor::invalidateGrid() { gridCache = {}; repaint(); }
@@ -56,11 +62,11 @@ void CurveEditor::paintGrid(juce::Graphics& g)
   // The number of beat lines matches the selected loop length: 1/4 bar
   // is one beat, while a four-bar loop has 16 beats. At closer zooms,
   // 1/16-beat divisions become visible without cluttering the full view.
-  constexpr int beatsPerCycle[]{1,2,4,8,16};
   const int length=juce::jlimit(0,4,juce::roundToInt(
       processor.apvts.getRawParameterValue("loopLength")->load()));
-  const int steps=beatsPerCycle[length]*(viewWidth<=.32f?16:4);
-  const int stepsPerBeat=steps/beatsPerCycle[length];
+  const int beats=ScratchTiming::beatsForLengthChoice(length);
+  const int steps=beats*(viewWidth<=.32f?16:4);
+  const int stepsPerBeat=steps/beats;
   for(int i=0;i<=steps;++i) {
    const float x=visibleX(static_cast<float>(i)/steps);
    if(x<plot.getX()-1.f || x>plot.getRight()+1.f) continue;
@@ -243,23 +249,27 @@ void CurveEditor::timerCallback()
 }
 void CurveEditor::saveUndo()
 {
- undoStack.push_back(processor.curveSnapshot()->nodes);
+ undoStack.push_back({processor.curveSnapshot()->nodes,processor.getPresetName()});
  if(undoStack.size()>48) undoStack.erase(undoStack.begin());
  redoStack.clear();
 }
 void CurveEditor::undo()
 {
  if(undoStack.empty()) return;
- redoStack.push_back(processor.curveSnapshot()->nodes);
- processor.setCurve(std::move(undoStack.back())); undoStack.pop_back();
- processor.setPresetName("Custom"); selected=hovered=dragNode=bend=hoveredBend=-1; repaint();
+ redoStack.push_back({processor.curveSnapshot()->nodes,processor.getPresetName()});
+ auto previous=std::move(undoStack.back());undoStack.pop_back();
+ processor.setCurve(std::move(previous.nodes));
+ processor.setPresetName(previous.presetName);
+ selected=hovered=dragNode=bend=hoveredBend=-1; repaint();
 }
 void CurveEditor::redo()
 {
  if(redoStack.empty()) return;
- undoStack.push_back(processor.curveSnapshot()->nodes);
- processor.setCurve(std::move(redoStack.back()));redoStack.pop_back();
- processor.setPresetName("Custom");selected=hovered=dragNode=bend=hoveredBend=-1;repaint();
+ undoStack.push_back({processor.curveSnapshot()->nodes,processor.getPresetName()});
+ auto next=std::move(redoStack.back());redoStack.pop_back();
+ processor.setCurve(std::move(next.nodes));
+ processor.setPresetName(next.presetName);
+ selected=hovered=dragNode=bend=hoveredBend=-1;repaint();
 }
 void CurveEditor::edit(const std::function<void(std::vector<CurveNode>&)>& f,bool customName)
 {
@@ -391,7 +401,10 @@ bool CurveEditor::keyPressed(const juce::KeyPress& key)
  const int code=key.getKeyCode();
  if(selected>=0 && (code==juce::KeyPress::leftKey || code==juce::KeyPress::rightKey
    || code==juce::KeyPress::upKey || code==juce::KeyPress::downKey)){
-  const float dx=m.isShiftDown()?1.f/256.f:1.f/64.f;
+  const int length=juce::jlimit(0,4,juce::roundToInt(
+      processor.apvts.getRawParameterValue("loopLength")->load()));
+  const int divisions=ScratchTiming::beatsForLengthChoice(length)*(m.isShiftDown()?64:16);
+  const float dx=1.f/(float)divisions;
   const float dy=m.isShiftDown()?1.f/32.f:1.f/8.f;
   const int index=selected;
   saveUndo();

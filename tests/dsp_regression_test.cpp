@@ -9,6 +9,23 @@
 
 static bool near(double a, double b, double tol = 1.e-5) { return std::abs(a-b)<tol; }
 int main() {
+    // Speed de-zipper should converge without overshoot at any sample rate.
+    for (double rate : {44100.0, 48000.0, 96000.0, 192000.0}) {
+        ScratchDSP::SpeedSlew smoother;
+        smoother.prepare(rate); smoother.reset();
+        float previous=smoother.process(4.f);
+        assert(previous>0.f && previous<4.f);
+        for (int i=0;i<static_cast<int>(rate*.010);++i) {
+            const float next=smoother.process(4.f);
+            assert(next>=previous && next<=4.f);
+            previous=next;
+        }
+        assert(previous>3.99f);
+        const float reversed=smoother.process(-4.f);
+        assert(reversed<previous && reversed>-4.f);
+        smoother.reset();
+        assert(near(smoother.process(NAN),0.f));
+    }
     // Exact dry bypass, exactly wet at 100%, and bounded equal-gain blend.
     assert(near(ScratchDSP::mixDryWet(.75f,-.1f,0.f),.75f));
     assert(near(ScratchDSP::mixDryWet(.75f,-.1f,1.f),-.1f));

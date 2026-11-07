@@ -1,5 +1,15 @@
 # ScratchPad changelog
 
+## v1.10.0 — Timing, editing and speed refinement (November 2026)
+- Aligns tempo-synced envelope phase to the host PPQ on transport starts and seeks, falling back to the first node when PPQ is absent.
+- Matches curve snapping and arrow-key increments to the selected loop length (1/16 beat; finer nudge with Shift).
+- Adds 0.4 ms sample-rate-independent speed slewing to reduce rapid-edit zipper artifacts.
+- Restores preset names alongside curve nodes during Undo and Redo.
+- Removes per-sample modulo from the recording write-head advance.
+- Adds a fifth regression suite for PPQ/grid behavior and DSP speed-slew tests across sample rates.
+- Preserves the five parameter IDs, plugin identity, 36 presets and Skelly neon visual styling.
+
+
 ## v1.9.0 — Skelly Neon Pro refinement (November 2026)
 
 ### DSP and playback
