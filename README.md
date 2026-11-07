@@ -1,6 +1,13 @@
-# ScratchPad v1.11 — Skelly Neon Pro
+# ScratchPad v1.12 — Skelly Neon Pro
 
 JUCE 8/C++17 scratch-speed VST3 and Standalone effect, with an original vector UI, live circular recording buffer, two-head crossfades, and a freely editable speed envelope.
+
+## What's new in v1.12
+
+- **Frozen-audio DC protection**: a lightweight 12 Hz wet-only DC blocker removes the constant offset that a held read-head sample can produce at 0× speed. Dry input at 0% Scratch Amount remains completely unfiltered.
+- **Preset navigation**: the footer now synchronizes its factory index when a saved preset name returns after undo/redo or state recall. Clicking an arrow navigates relative to the currently displayed factory preset.
+- **More discoverable shape editing**: hovering a diamond handle shows its segment bend amount; selected node details retain priority.
+- **Offline regression**: tests verify DC settles during freeze and 440 Hz midrange energy remains within ±2% across 44.1, 48, 96 and 192 kHz.
 
 ## What's new in v1.11
 

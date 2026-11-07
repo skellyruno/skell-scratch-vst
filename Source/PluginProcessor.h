@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include <mutex>
+#include <array>
 #include "CurveMath.h"
 #include "DSPHelpers.h"
 struct ScratchCurveData { std::vector<CurveNode> nodes; };
@@ -65,6 +66,7 @@ private:
  juce::SmoothedValue<float> amount;
  juce::SmoothedValue<float> speedRangeSmoothing;
  ScratchDSP::SpeedSlew speedSlew;
+ std::array<ScratchDSP::DCBlocker, 2> wetDcBlockers;
  float interpolate(int channel,double pos) const;
  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ScratchPadAudioProcessor)
 };

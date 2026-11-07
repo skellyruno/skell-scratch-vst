@@ -95,7 +95,9 @@ void FooterBar::paint(juce::Graphics& g)
 }
 void FooterBar::mouseUp(const juce::MouseEvent& e)
 {
- switch(hitTest(logical(e.position))){
+ const int clicked=hitTest(logical(e.position));
+ if(clicked==3 || clicked==4)syncPresetIndex();
+ switch(clicked){
   case 1:menu();break;
   case 2:rename();break;
   case 3:applyPreset((preset+ScratchPresets::count()-1)%ScratchPresets::count());break;
@@ -106,11 +108,18 @@ void FooterBar::mouseUp(const juce::MouseEvent& e)
 }
 void FooterBar::syncPresetIndex()
 {
+ const auto name=processor.getPresetName();
  for(int i=0;i<ScratchPresets::count();++i)
-  if(processor.getPresetName()==ScratchPresets::names[(size_t)i]){
+  if(name==ScratchPresets::names[(size_t)i]){
    preset=i;
    return;
   }
+ // A renamed or custom curve retains the last selected factory position.
+}
+void FooterBar::refreshPresetState()
+{
+ syncPresetIndex();
+ repaint();
 }
 void FooterBar::applyPreset(int index)
 {
@@ -192,7 +201,7 @@ void FooterBar::menu()
   }
   if(command==4){
    juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,"ScratchPad",
-    "Skelly Neon v1.11. Add or move dots, drag diamond handles to bend, Alt for free editing, Ctrl+wheel to zoom, Ctrl+Z to undo. Scratch Amount 0% is dry; STOP is automatable.");
+    "Skelly Neon v1.12. Add or move dots, drag diamond handles to bend, Alt for free editing, Ctrl+wheel to zoom, Ctrl+Z to undo. Scratch Amount 0% is dry; STOP is automatable.");
    return;
   }
   if(command==1||command==2){

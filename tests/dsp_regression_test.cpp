@@ -26,6 +26,31 @@ int main() {
         smoother.reset();
         assert(near(smoother.process(NAN),0.f));
     }
+    // Frozen playback must not output steady DC indefinitely. The wet-only
+    // filter must still preserve ordinary mid-band content at all host rates.
+    for (double rate : {44100.0, 48000.0, 96000.0, 192000.0}) {
+        ScratchDSP::DCBlocker blocker;
+        blocker.prepare(rate);
+        float tail=0.f;
+        for (int i=0; i<static_cast<int>(rate*.45); ++i)
+            tail=blocker.process(.6f);
+        assert(std::abs(tail)<.00001f);
+        blocker.reset();
+        double inputPower=0.0, outputPower=0.0;
+        constexpr double pi=3.14159265358979323846;
+        for (int i=0; i<static_cast<int>(rate*.2); ++i) {
+            const float tone=static_cast<float>(.5*std::sin(2*pi*440.0*i/rate));
+            const float filtered=blocker.process(tone);
+            if (i>static_cast<int>(rate*.05)) {
+                inputPower+=static_cast<double>(tone)*tone;
+                outputPower+=static_cast<double>(filtered)*filtered;
+            }
+        }
+        assert(inputPower>0.);
+        assert(outputPower/inputPower>.98);
+        assert(outputPower/inputPower<1.02);
+        assert(std::isfinite(blocker.process(std::numeric_limits<float>::quiet_NaN())));
+    }
     // Exact dry bypass, exactly wet at 100%, and bounded equal-gain blend.
     assert(near(ScratchDSP::mixDryWet(.75f,-.1f,0.f),.75f));
     assert(near(ScratchDSP::mixDryWet(.75f,-.1f,1.f),-.1f));

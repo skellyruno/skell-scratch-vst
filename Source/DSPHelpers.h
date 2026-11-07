@@ -3,6 +3,30 @@
 #include <cmath>
 
 namespace ScratchDSP {
+// A single-pole wet-only high-pass prevents a frozen 0x read head from
+// producing sustained DC. The dry signal is never filtered, so 0% Scratch
+// Amount remains an exact passthrough. Coefficient computed only on prepare.
+struct DCBlocker {
+    double coefficient = 0.0;
+    double previousInput = 0.0;
+    double previousOutput = 0.0;
+    void prepare(double sampleRate, double cutoffHz = 12.0) noexcept {
+        constexpr double twoPi = 6.28318530717958647692;
+        coefficient = std::isfinite(sampleRate) && sampleRate > 0.0
+            ? std::exp(-twoPi * std::clamp(cutoffHz, 1.0, 40.0) / sampleRate)
+            : 0.0;
+        reset();
+    }
+    void reset() noexcept { previousInput = previousOutput = 0.0; }
+    float process(float input) noexcept {
+        if (!std::isfinite(input)) input = 0.f;
+        const double output = coefficient * (previousOutput + static_cast<double>(input) - previousInput);
+        previousInput = input;
+        previousOutput = std::isfinite(output) ? output : 0.0;
+        return static_cast<float>(previousOutput);
+    }
+};
+
 // Gentle, sample-rate-independent speed slewing prevents zipper clicks when
 // a node moves or the host automates an abrupt curve change. It does not
 // allocate or call into JUCE from the audio callback.

@@ -1,5 +1,14 @@
 # ScratchPad changelog
 
+## v1.12.0 — Frozen-signal cleanup and preset polish (November 2026)
+- Adds a 12 Hz wet-only single-pole DC blocker to prevent sustained DC when the speed envelope freezes at 0×. Preserves exact dry audio at 0% Scratch Amount.
+- Automatically reinitializes the filter on engine preparation and after complete dry transitions, with no allocations or locks inside the sample callback.
+- Corrects footer preset index after factory preset restoration, rename and undo/redo; clicking preset arrows now synchronizes first.
+- Adds clear bend-handle hover feedback without adding controls or changing the 441×263 design.
+- Expands DSP tests to measure DC removal and mid-band preservation at 44.1/48/96/192 kHz.
+- Keeps existing plugin code, five parameter identifiers, 36 presets and existing CMake/GitHub Actions packaging.
+
+
 ## v1.11.0 — Capture safety and UI polish (November 2026)
 - Keeps dry audio audible until the requested loop has been fully recorded; starts a two-millisecond wet fade only after capture is complete.
 - Resets the read head to verified recorded history on initial capture readiness; safely handles loop-length increases that need more history.

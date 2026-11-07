@@ -58,8 +58,9 @@ void ScratchPadAudioProcessorEditor::resized()
 void ScratchPadAudioProcessorEditor::timerCallback()
 {
  processor.collectRetiredCurves();
- if(lastPresetName != processor.getPresetName()){
-  lastPresetName=processor.getPresetName();
-  footer.repaint();
+ const auto name=processor.getPresetName();
+ if(lastPresetName != name){
+  lastPresetName=name;
+  footer.refreshPresetState();
  }
 }

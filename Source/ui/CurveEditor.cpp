@@ -145,8 +145,17 @@ void CurveEditor::paint(juce::Graphics& g)
   g.setColour(Theme::accent);
   g.setFont(Theme::uiFont(8.5f,true));
   g.drawFittedText(detail,137,7,145,12,juce::Justification::centredRight,1);
- } else {
-  const float speed=processor.currentSpeed.load(std::memory_order_relaxed);
+ } else if(data && hoveredBend>=0 && hoveredBend+1<(int)data->nodes.size()) {
+   const float tension=data->nodes[(size_t)hoveredBend].tension;
+   const auto detail="BEND "+juce::String(hoveredBend+1)+"   "+
+       (tension>=0.f?"+":"")+juce::String(tension,2);
+   g.setColour(Theme::elevated);
+   g.fillRoundedRectangle(166.f,6.f,119.f,15.f,3.f);
+   g.setColour(Theme::accent);
+   g.setFont(Theme::uiFont(8.7f,true));
+   g.drawFittedText(detail,169,7,113,12,juce::Justification::centredRight,1);
+  } else {
+   const float speed=processor.currentSpeed.load(std::memory_order_relaxed);
   const bool stopped=processor.apvts.getRawParameterValue("stopTrigger")->load()>.5f;
   juce::String status;
   if(stopped) status="STOPPED";

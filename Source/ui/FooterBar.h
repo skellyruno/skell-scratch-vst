@@ -13,6 +13,7 @@ public:
  void mouseExit(const juce::MouseEvent&) override;
  void menu();
  void applyPreset(int index);
+ void refreshPresetState();
  std::function<void(int)> loadPreset;
  std::function<void()> beforePresetChange;
 private:

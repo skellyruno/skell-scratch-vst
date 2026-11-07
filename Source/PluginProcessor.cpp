@@ -42,6 +42,7 @@ void ScratchPadAudioProcessor::prepareToPlay(double sr, int block)
  speedRangeSmoothing.reset(sampleRate,.012);
  speedSlew.prepare(sampleRate, .0004);
  speedSlew.reset();
+ for (auto& filter : wetDcBlockers) filter.prepare(sampleRate);
  { const auto raw=apvts.getRawParameterValue("speedRange")->load();
    speedRangeSmoothing.setCurrentAndTargetValue(raw<.5f?1.f:raw<1.5f?2.f:4.f); }
  amount.setCurrentAndTargetValue(apvts.getRawParameterValue("scratchAmount")->load()*.01f);
@@ -243,7 +244,13 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
     const float newest=interpolate(ch,readPos);
     const float older=transitionActive?interpolate(ch,transitionReadPos):0.f;
     const float wet=older*oldGain+newest*newGain;
-    output=ScratchDSP::mixDryWet(dry,wet,wetAmount);
+    // At 0x the read head emits a constant sample. Block sustained DC in
+    // the wet path only; the dry path keeps exact zero-latency passthrough.
+    output=ScratchDSP::mixDryWet(dry,wetDcBlockers[static_cast<size_t>(ch)].process(wet),wetAmount);
+   }
+   else if(wetAmount<=0.000001f)
+   {
+    wetDcBlockers[static_cast<size_t>(ch)].reset();
    }
    output*=gain;
    buf.setSample(ch,i,std::isfinite(output)?output:0.f);
