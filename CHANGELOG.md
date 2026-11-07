@@ -1,5 +1,15 @@
 # ScratchPad changelog
 
+## v1.11.0 — Capture safety and UI polish (November 2026)
+- Keeps dry audio audible until the requested loop has been fully recorded; starts a two-millisecond wet fade only after capture is complete.
+- Resets the read head to verified recorded history on initial capture readiness; safely handles loop-length increases that need more history.
+- Avoids unnecessary interpolation when output is entirely dry or capture is incomplete.
+- Improves envelope editor graphics: selection crosshairs, clearer bend grips, a playhead flag, and explicit snap guidance.
+- Tessellates only visible curve segments at high zoom for better editor responsiveness.
+- Fine-tunes low-contrast outlines and the knob hub while keeping the existing Skelly-green branding.
+- Adds capture-geometry regression coverage; maintains existing five automatable parameter identifiers, 36 presets and v1.10 transport behavior.
+
+
 ## v1.10.0 — Timing, editing and speed refinement (November 2026)
 - Aligns tempo-synced envelope phase to the host PPQ on transport starts and seeks, falling back to the first node when PPQ is absent.
 - Matches curve snapping and arrow-key increments to the selected loop length (1/16 beat; finer nudge with Shift).

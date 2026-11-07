@@ -54,12 +54,14 @@ private:
  int writePos=0, loopSamples=1, phaseSamples=0;
  double readPos=0, transitionReadPos=0, sampleRate=44100;
  int recordedSamples=0, transitionRemaining=0;
+ bool captureReady=false; // The wet path is disabled until one complete loop is recorded.
  bool lastHostPlaying=false;
  bool hostTransportKnown=false;
  juce::int64 expectedHostSample=0;
  bool transitionActive=false;
  int fadeSamples=1;
  juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> stopGain;
+ juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> captureGain;
  juce::SmoothedValue<float> amount;
  juce::SmoothedValue<float> speedRangeSmoothing;
  ScratchDSP::SpeedSlew speedSlew;

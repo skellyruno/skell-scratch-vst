@@ -1,6 +1,14 @@
-# ScratchPad v1.10 — Skelly Neon Pro
+# ScratchPad v1.11 — Skelly Neon Pro
 
 JUCE 8/C++17 scratch-speed VST3 and Standalone effect, with an original vector UI, live circular recording buffer, two-head crossfades, and a freely editable speed envelope.
+
+## What's new in v1.11
+
+- **Reliable startup capture**: the wet signal is muted until an entire loop has been recorded, keeping the dry input audible rather than switching to partially empty history. The wet path fades in over 2 ms when capture completes.
+- **Optimized DSP**: at 0% Scratch Amount and during capture, the engine skips unnecessary Hermite reads while continuing to record input and track playback safely.
+- **UI polish**: visually clearer node-selection guides, brighter bend grips, a crisp playhead marker and explicit 1/16-beat snapping reminder.
+- **Rendering performance**: only the visible portion of a zoomed curve is tessellated, saving editor CPU in dense 512-point envelopes.
+- **Regression**: added startup capture-gating and read-head geometry checks. JUCE/Windows compilation and DAW listening tests still determine release readiness.
 
 ## What's new in v1.10
 

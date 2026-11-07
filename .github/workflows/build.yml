@@ -28,6 +28,6 @@ jobs:
       # Actions downloads are already ZIP archives; no nested ZIPs.
       - uses: actions/upload-artifact@v4
         with:
-          name: ScratchPad-Windows-1.10
+          name: ScratchPad-Windows-1.11
           path: dist/
           if-no-files-found: error

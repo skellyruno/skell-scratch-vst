@@ -55,6 +55,11 @@ void ScratchKnob::paint(juce::Graphics& g)
  g.fillEllipse(mx-1.6f,my-1.6f,3.2f,3.2f);
  g.setColour(Theme::plot);
  g.fillEllipse(cx-29.f,cy-29.f,58.f,58.f);
+ g.setColour(Theme::accent.withAlpha(.07f));
+ g.drawEllipse(cx-31.f,cy-31.f,62.f,62.f,1.f);
+ g.setGradientFill(juce::ColourGradient(Theme::elevated.withAlpha(.72f),
+                     cx-13.f,cy-22.f,Theme::plot.withAlpha(.35f),cx+20.f,cy+23.f,false));
+ g.fillEllipse(cx-26.f,cy-26.f,52.f,52.f);
  g.setColour(Theme::edge.brighter(.18f));
  g.drawEllipse(cx-29.f,cy-29.f,58.f,58.f,1.2f);
  // Original compact Skelly crossed-arrow monogram.

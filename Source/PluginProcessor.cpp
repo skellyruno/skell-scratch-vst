@@ -33,6 +33,7 @@ void ScratchPadAudioProcessor::prepareToPlay(double sr, int block)
  ring.setSize(std::max(1,getTotalNumInputChannels()),capacity);
  ring.clear();
  writePos=0;readPos=0;transitionReadPos=0;recordedSamples=0;
+ captureReady=false;
  phaseSamples=0;loopSamples=std::min(capacity-8,(int)(sampleRate*2.0));
  fadeSamples=std::max(1,(int)std::round(sampleRate*.002));
  transitionRemaining=0;transitionActive=false;
@@ -45,6 +46,8 @@ void ScratchPadAudioProcessor::prepareToPlay(double sr, int block)
    speedRangeSmoothing.setCurrentAndTargetValue(raw<.5f?1.f:raw<1.5f?2.f:4.f); }
  amount.setCurrentAndTargetValue(apvts.getRawParameterValue("scratchAmount")->load()*.01f);
  stopGain.reset(sampleRate,.002);
+ captureGain.reset(sampleRate,.002);
+ captureGain.setCurrentAndTargetValue(0.f);
  stopGain.setCurrentAndTargetValue(
      apvts.getRawParameterValue("stopTrigger")->load() > .5f ? 0.f : 1.f);
  currentSpeed.store(0.f, std::memory_order_relaxed);
@@ -184,6 +187,21 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
    ring.setSample(ch,writePos,std::isfinite(input)?input:0.f);
   }
   recordedSamples=std::min(recordedSamples+1,ringSize);
+  const bool fullLoop=HeadSafety::hasFullCapture(recordedSamples,loopSamples);
+  if(fullLoop != captureReady)
+  {
+   captureReady=fullLoop;
+   if(captureReady)
+   {
+    // The previous head might still point into unrecorded space. This
+    // retarget happens while the wet signal is silent, before the 2 ms fade.
+    readPos=HeadSafety::capturedLoopStart(writePos,loopSamples,ringSize);
+    transitionReadPos=readPos;
+    transitionRemaining=0;
+    transitionActive=false;
+   }
+   captureGain.setTargetValue(captureReady?1.f:0.f);
+  }
   // Reposition before the writer catches a frozen/slow/reversing read head.
   // The guard is larger than the fade, so the old head remains readable
   // while the new head fades in. Avoid retriggering during an active fade.
@@ -205,6 +223,8 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
   if (stopped) speedSlew.reset();
   latestSpeed=speed;
   const float gain=stopGain.getNextValue();
+  const float wetAmount=smoothedAmount*captureGain.getNextValue();
+  const bool needWet=wetAmount>0.000001f;
   const float crossfade=transitionActive
     ?1.f-(float)transitionRemaining/(float)fadeSamples:1.f;
   // Equal-gain, smoothstep crossfade: unlike equal-power blending, this
@@ -214,15 +234,18 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
   const float newGain=transitionActive?blend:1.f;
   for(int ch=0;ch<channels;++ch)
   {
-   const float newest=interpolate(ch,readPos);
-   const float older=transitionActive?interpolate(ch,transitionReadPos):0.f;
-   const float wet=(older*oldGain+newest*newGain);
-   // 0% scratch is true zero-latency dry input; no frozen/delayed output.
-   // The same smoothed amount blends toward scratched audio, while STOP
-   // mutes both dry and wet so DAW automation is unambiguous.
    const float dry=ring.getSample(ch,writePos);
-   const float output=ScratchDSP::mixDryWet(dry,wet,
-                         smoothedAmount*ScratchDSP::captureFade(recordedSamples,fadeSamples))*gain;
+   // Skip interpolator taps entirely while warming up or at 0% amount.
+   // This also guarantees exact, zero-latency dry signal before capture.
+   float output=dry;
+   if(needWet)
+   {
+    const float newest=interpolate(ch,readPos);
+    const float older=transitionActive?interpolate(ch,transitionReadPos):0.f;
+    const float wet=older*oldGain+newest*newGain;
+    output=ScratchDSP::mixDryWet(dry,wet,wetAmount);
+   }
+   output*=gain;
    buf.setSample(ch,i,std::isfinite(output)?output:0.f);
   }
   for(int ch=channels;ch<buf.getNumChannels();++ch)buf.clear(ch,i,1);

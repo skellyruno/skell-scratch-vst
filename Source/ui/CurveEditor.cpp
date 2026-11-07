@@ -103,6 +103,9 @@ void CurveEditor::paintGrid(juce::Graphics& g)
  g.setColour(Theme::muted);
  g.setFont(Theme::uiFont(8.2f,true));
  g.drawText("0",32,171,16,9,juce::Justification::centredLeft);
+ g.setColour(Theme::muted.withAlpha(.78f));
+ g.drawFittedText("SNAP 1/16 BEAT  |  ALT: FREE",69,171,173,10,juce::Justification::centred,1);
+ g.setColour(Theme::muted);
  g.drawText("1 LOOP",244,171,38,9,juce::Justification::centredRight);
 }
 void CurveEditor::paint(juce::Graphics& g)
@@ -160,19 +163,37 @@ void CurveEditor::paint(juce::Graphics& g)
  const auto& nodes=data->nodes;
  juce::Graphics::ScopedSaveState clip(g);
  g.reduceClipRegion(plot.toNearestInt());
+ const int guideIndex=selected>=0?selected:hovered;
+ if(guideIndex>=0 && guideIndex<(int)nodes.size()) {
+  const auto p=nodePoint(nodes[(size_t)guideIndex]);
+  g.setColour(Theme::accent.withAlpha(.23f));
+  g.drawLine(plot.getX(),p.y,plot.getRight(),p.y,.7f);
+  g.drawLine(p.x,plot.getY(),p.x,plot.getBottom(),.7f);
+ }
  juce::Path line;
  bool started=false;
- // Same quadratic tension interpolation as the audio DSP; adaptive line steps.
+ const float viewEnd=viewStart+viewWidth;
+ // Only tessellate segments visible in the current zoom window. The
+ // interpolation remains identical to the DSP, including curved midpoints.
  for(size_t i=1;i<nodes.size();++i) {
   const auto& a=nodes[i-1]; const auto& b=nodes[i];
-  if(!started) {line.startNewSubPath(nodePoint(a));started=true;}
-  const int steps=juce::jlimit(2,56,juce::roundToInt(std::abs(visibleX(b.x)-visibleX(a.x))*.4f));
+  if(b.x<viewStart) continue;
+  if(a.x>viewEnd) break;
+  const float from=std::max(viewStart,a.x);
+  const float to=std::min(viewEnd,b.x);
+  if(to<from) continue;
+  if(!started) {
+   line.startNewSubPath(visibleX(from),plot.getCentreY()
+       -CurveMath::segmentValue(a,b,from)*plot.getHeight()*.25f);
+   started=true;
+  }
+  const int steps=juce::jlimit(2,56,juce::roundToInt(std::abs(visibleX(to)-visibleX(from))*.4f));
   for(int s=1;s<=steps;++s) {
-   const float x=a.x+(b.x-a.x)*(float)s/steps;
+   const float x=from+(to-from)*(float)s/steps;
    line.lineTo(visibleX(x),plot.getCentreY()-CurveMath::segmentValue(a,b,x)*plot.getHeight()*.25f);
   }
  }
- g.setColour(Theme::accent.withAlpha(.11f));
+ g.setColour(Theme::accent.withAlpha(.10f));
  g.strokePath(line,juce::PathStrokeType(5.f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
  g.setColour(Theme::accent.withAlpha(.92f));
  g.strokePath(line,juce::PathStrokeType(1.6f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
@@ -183,12 +204,13 @@ void CurveEditor::paint(juce::Graphics& g)
   const bool hot=(int)i-1==hoveredBend || (int)i-1==bend;
   g.setColour(hot?Theme::white:Theme::accent.withAlpha(.50f));
   juce::Path diamond;
-  const float r=hot?4.6f:3.f;
+  const float r=hot?4.8f:3.5f;
   diamond.startNewSubPath(p.x,p.y-r);diamond.lineTo(p.x+r,p.y);diamond.lineTo(p.x,p.y+r);diamond.lineTo(p.x-r,p.y);diamond.closeSubPath();
   g.fillPath(diamond);
  }
  for(size_t i=0;i<nodes.size();++i) {
   const auto p=nodePoint(nodes[i]);
+  if(p.x<plot.getX()-6.f||p.x>plot.getRight()+6.f)continue;
   const bool chosen=(int)i==selected;
   const bool hot=(int)i==hovered||chosen;
   const float r=chosen?5.f:hot?4.7f:3.7f;
@@ -200,8 +222,14 @@ void CurveEditor::paint(juce::Graphics& g)
  }
  const float play=processor.playhead.load(std::memory_order_relaxed);
  const float px=visibleX(play);
- g.setColour(Theme::accent.withAlpha(.55f));
+ g.setColour(Theme::accent.withAlpha(.07f));
+ g.fillRect(px-2.f,plot.getY(),4.f,plot.getHeight());
+ g.setColour(Theme::accent.withAlpha(.65f));
  g.drawVerticalLine(juce::roundToInt(px),plot.getY(),plot.getBottom());
+ g.setColour(Theme::accent);
+ juce::Path playheadFlag;
+ playheadFlag.addTriangle(px-3.5f,plot.getY()+1.f,px+3.5f,plot.getY()+1.f,px,plot.getY()+7.f);
+ g.fillPath(playheadFlag);
  for(int i=4;i>=0;--i) {
   float phase=play-i*.006f;
   if(phase<0)phase+=1.f;

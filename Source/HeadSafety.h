@@ -32,6 +32,17 @@ inline bool approachingOverwrite(int writePosition, double readPosition,
     // samples can be overwritten, and the leading samples are not yet recorded.
     return behind < guard || behind > static_cast<double>(size) - guard;
 }
+// Start reading within a fully captured cycle, safely inside both interpolation
+// boundaries. writePosition refers to the most recently written sample.
+inline double capturedLoopStart(int writePosition, int loopLength, int size,
+                               int margin = 8) noexcept {
+    if (size < 8 || loopLength < 1) return 0.0;
+    const int offset = std::clamp(loopLength - std::max(0, margin), 0, size - 1);
+    return wrap(static_cast<double>(writePosition - offset), size);
+}
+inline bool hasFullCapture(int capturedSamples, int loopLength, int margin = 8) noexcept {
+    return loopLength > 0 && capturedSamples >= loopLength + std::max(0, margin);
+}
 inline double safePosition(int writePosition, int size, int loopLength,
                            int protectedSamples) noexcept {
     const int margin = std::clamp(protectedSamples * 4, 16, std::max(16, size / 2));
