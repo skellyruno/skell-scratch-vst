@@ -29,6 +29,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           retention-days: 3
-          name: ScratchPad-Windows-1.13
+          name: ScratchPad-Windows-1.14
           path: dist/
           if-no-files-found: error

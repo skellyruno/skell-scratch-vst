@@ -9,6 +9,7 @@
 #include "DSPHelpers.h"
 #include "BandlimitedInterpolation.h"
 #include "LockedLoop.h"
+#include "LoopSeam.h"
 struct ScratchCurveData { std::vector<CurveNode> nodes; };
 class ScratchPadAudioProcessor : public juce::AudioProcessor {
 public:
@@ -81,6 +82,7 @@ private:
  juce::SmoothedValue<float> speedRangeSmoothing;
  ScratchDSP::SpeedSlew speedSlew;
  ScratchDSP::BandlimitedInterpolator bandlimited;
+ ScratchDSP::LoopSeam loopSeam;
  std::array<ScratchDSP::DCBlocker, 2> wetDcBlockers;
  float interpolate(int channel,double pos,float speed,bool locked) const;
  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ScratchPadAudioProcessor)

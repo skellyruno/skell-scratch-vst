@@ -66,5 +66,21 @@ int main() {
     }
     assert(sinc.sample(std::numeric_limits<double>::quiet_NaN(),n,4.f,
         [&](int j){return fixed[static_cast<size_t>(j)];})==0.f);
+    // Windowed sinc ringing must not overshoot the peak of its source taps.
+    // Also verifies arbitrary float headroom is preserved, not hard-clipped.
+    std::vector<float> impulse(n);
+    impulse[100]=1.f;
+    for (float speed : {1.f,1.5f,2.f,3.f,4.f})
+        for(double pos=80.;pos<122.;pos+=.125) {
+            const float v=sinc.sample(pos,n,speed,[&](int i){return impulse[static_cast<size_t>(i)];});
+            assert(std::isfinite(v) && std::abs(v)<=1.000001f);
+        }
+    impulse[100]=2.5f;
+    assert(sinc.sample(100.,n,4.f,[&](int i){return impulse[static_cast<size_t>(i)];})>0.01f);
+    assert(sinc.sample(100.,n,4.f,[&](int i){return impulse[static_cast<size_t>(i)];})<=2.5f);
+    assert(sinc.sample(100.,n,4.f,[&](int i){return i==100?NAN:0.f;})==0.f);
+    const float periodic=sinc.sample(512.125,n,2.f,[&](int i){return fixed[static_cast<size_t>(i)];});
+    for(double outOfRange : {-n*3. + 512.125, n*2. + 512.125, n*1000000. + 512.125})
+        assert(std::abs(sinc.sample(outOfRange,n,2.f,[&](int i){return fixed[static_cast<size_t>(i)];})-periodic)<1.e-5f);
     return 0;
 }

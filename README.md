@@ -1,6 +1,21 @@
-# ScratchPad v1.13 — Skelly Neon Pro
+# ScratchPad v1.14 — Skelly Neon Pro
 
 JUCE 8/C++17 scratch-speed VST3 and Standalone effect, with an original vector UI, live circular recording buffer, two-head crossfades, and a freely editable speed envelope.
+
+## What's new in v1.14
+
+- **Smooth locked-loop seams:** at the capture boundary, the first and last ~1.5 ms of playback are gently eased toward a shared midpoint. This prevents a hard jump from the last recorded sample to the first at high or reverse speeds, without altering the stored loop. Constant/periodic loops are not significantly affected.
+- **Band-limited peak safety:** high-speed sinc interpolation is constrained by the peak of the original source taps, preventing reconstruction overshoot while respecting DAW floating-point headroom. NaN taps are rejected.
+- **UI:** clearer keyboard focus rings on Stop and Loop Lock, without changing the compact 441×263 Skelly layout.
+- **Tests:** seven JUCE-independent regression suites, including aggressive forward/reverse seam traversal and full-scale impulse bounds. Release and sanitizer builds can run without downloading JUCE:
+
+```sh
+cmake -S . -B build-core -DSCRATCHPAD_CORE_TESTS_ONLY=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build-core --parallel
+ctest --test-dir build-core -C Release --output-on-failure
+```
+
+- **DSP profiling:** `g++ -O3 -std=c++17 tests/dsp_benchmark.cpp -o bench && ./bench` profiles the stereo 4x filtered read path at 44.1–192 kHz. CPU estimates depend on the machine and exclude the full JUCE host callback.
 
 ## What's new in v1.13
 

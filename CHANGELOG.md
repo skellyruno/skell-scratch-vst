@@ -1,5 +1,13 @@
 # ScratchPad changelog
 
+## v1.14.0 — Seam safety, bounded high-speed playback, accessible controls (November 2026)
+- Conditions the readout of the immutable captured loop in a 1.5 ms region around the recording seam to avoid hard step discontinuities during forward/reverse scratches. This is applied at read time; stored capture samples are untouched.
+- Constrains the 32-tap sinc resampler to the maximum source-tap magnitude to prevent reconstruction overshoot, and sanitizes non-finite input taps. Generalized position wrap uses a slow-path modulo only when needed.
+- Adds visible keyboard-focus states to Stop and Loop Lock, preserving the compact interface and all 36 presets.
+- Adds a JUCE-free CMake build switch for offline regression testing, a seventh seam regression suite and an optional 4x stereo performance benchmark.
+- Preserves plugin IDs and the existing six automatable parameter IDs, including Loop Lock; the GitHub Windows workflow continues to build VST3 and Standalone.
+
+
 ## v1.13.0 — True locked-loop capture and aggressive scratch fidelity (November 2026)
 - Appends an automatable `loopLock` boolean parameter without changing the prior five parameter IDs or VST3 identity.
 - Captures the **next full input loop** into a dedicated preallocated mono/stereo buffer, never overwriting captured audio while locked. A reset/unlock crossfade safely returns to live input, and loop-length menu changes re-arm capture.

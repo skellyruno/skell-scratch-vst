@@ -48,6 +48,13 @@ public:
     template <typename Reader>
     float sample(double position, int length, float absSpeed, Reader&& read) const noexcept {
         if (length <= 0 || !std::isfinite(position)) return 0.f;
+        // The real-time processor supplies already-wrapped positions. The
+        // fallback also makes the standalone interpolator safe for arbitrary
+        // test/host positions without a modulo cost in the normal path.
+        if (position < 0.0 || position >= static_cast<double>(length)) {
+            position = std::fmod(position, static_cast<double>(length));
+            if (position < 0.0) position += static_cast<double>(length);
+        }
         if (!std::isfinite(absSpeed)) absSpeed = 1.f;
         const float rate = std::clamp(absSpeed, 1.f, 4.f);
         int band = 0;
@@ -60,6 +67,7 @@ public:
         const float phaseMix = p - phase;
         int index = static_cast<int>(integer) - taps / 2 + 1;
         double output = 0.0;
+        float peak = 0.f;
         for (int tap = 0; tap < taps; ++tap, ++index) {
             // Normal playback has wrapped positions and long buffers, so
             // this normally requires only a branch, not integer modulo.
@@ -72,9 +80,15 @@ public:
             const float d = weights[band + 1][phase + 1][tap];
             const float low = a + (b - a) * phaseMix;
             const float high = c + (d - c) * phaseMix;
-            output += static_cast<double>(read(wrapped)) * (low + (high - low) * bandMix);
+            const float input = read(wrapped);
+            if (!std::isfinite(input)) return 0.f;
+            peak = std::max(peak, std::abs(input));
+            output += static_cast<double>(input) * (low + (high - low) * bandMix);
         }
-        return std::isfinite(output) ? static_cast<float>(output) : 0.f;
+        // Windowed sinc interpolation may ring above the amplitude of an
+        // otherwise safe full-scale source. Bound the peak to the actual
+        // source taps without clamping to 0dBFS (the DAW has float headroom).
+        return std::isfinite(output) ? std::clamp(static_cast<float>(output),-peak,peak) : 0.f;
     }
 private:
     std::array<std::array<std::array<float, taps>, phases + 1>, bands> weights{};

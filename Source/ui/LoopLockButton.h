@@ -37,6 +37,10 @@ public:
   g.drawText(status,68,4,30,17,juce::Justification::centredRight);
   g.setColour(stage==2?Theme::accent:stage==1?Theme::accent2:Theme::muted);
   g.fillEllipse(98.f,11.f,3.f,3.f);
+  if(hasKeyboardFocus(true)) {
+   g.setColour(Theme::accent.withAlpha(.85f));
+   g.drawRoundedRectangle(rect.reduced(.8f),3.3f,1.15f);
+  }
  }
 private:
  ScratchPadAudioProcessor& processor;

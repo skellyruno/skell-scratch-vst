@@ -34,5 +34,9 @@ public:
   g.setColour(halted?Theme::accent:Theme::edge);
   g.fillEllipse(91.f,21.f,5.f,5.f);
   if(halted){g.setColour(Theme::accent.withAlpha(.22f));g.drawEllipse(88.5f,18.5f,10.f,10.f,1.f);}
+  if(hasKeyboardFocus(true)) {
+   g.setColour(Theme::accent.withAlpha(.84f));
+   g.drawRoundedRectangle(r.reduced(.8f),6.f,1.2f);
+  }
  }
 };

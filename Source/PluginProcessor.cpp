@@ -38,6 +38,7 @@ void ScratchPadAudioProcessor::prepareToPlay(double sr, int block)
  ring.clear();
  capturedLoop.clear();
  lockCapture.reset(); previousLockRequest=false; rearmLock=false;
+ loopSeam.prepare(0,sampleRate);
  lockedLengthChoice=-1;
  lockedReadPos=lockedOldReadPos=0.0;
  lockedTransitionActive=false;lockedTransitionRemaining=0;
@@ -105,7 +106,8 @@ float ScratchPadAudioProcessor::interpolate(int ch,double pos,float speed,bool l
    const int age=writePos>=idx?writePos-idx:writePos-idx+n;
    if(age>=recordedSamples) return 0.f;
   }
-  return data.getSample(ch,idx);
+  const float value=data.getSample(ch,idx);
+  return locked ? loopSeam.sample(value,idx,ch) : value;
  };
  const auto integer=(int)std::floor(pos);
  const float t=(float)(pos-integer);
@@ -250,6 +252,13 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
     capturedLoop.setSample(ch,index,ring.getSample(ch,writePos));
    if(lockCapture.advance())
    {
+    // Condition the seam without modifying the captured audio; only the
+    // first/last ~1.5 ms will be blended during playback.  This operation
+    // performs constant work at the completion sample.
+    loopSeam.prepare(lockCapture.length,sampleRate);
+    for(int ch=0;ch<channels;++ch)
+     loopSeam.setBoundary(ch,capturedLoop.getSample(ch,0),
+                              capturedLoop.getSample(ch,lockCapture.length-1));
     lockedReadPos=0.0;
     lockedTransitionActive=false;
     lockBlend.setTargetValue(1.f);
