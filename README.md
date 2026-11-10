@@ -1,6 +1,13 @@
-# ScratchPad v1.14 — Skelly Neon Pro
+# ScratchPad v1.14.1 — Skelly Neon Pro
 
 JUCE 8/C++17 scratch-speed VST3 and Standalone effect, with an original vector UI, live circular recording buffer, two-head crossfades, and a freely editable speed envelope.
+
+## v1.14.1 — CI and regression cleanup
+
+- Replaced Release-disabled `assert` with a test-only `REQUIRE` macro, so all checks run unconditionally with no MSVC `/DNDEBUG`/`/UNDEBUG` override warning.
+- Updated Windows Actions to official Node.js 24-compatible `checkout@v6` and `upload-artifact@v6`, addressing runner deprecation warnings.
+- Added a static editor-geometry check at 441×263, 661×394, 882×526, and 1323×789. The check verifies components stay inside the window and do not overlap; it does **not** substitute for an actual JUCE UI render.
+- Expanded the seam regression to measure adjacent-output jumps at ±2× and ±4× against an unconditioned discontinuous loop.
 
 ## What's new in v1.14
 

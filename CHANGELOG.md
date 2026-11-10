@@ -1,5 +1,12 @@
 # ScratchPad changelog
 
+## v1.14.1 — Warning-free Release regression and CI cleanup (November 2026)
+- Replaces all C++ test `assert` macros with unconditional `REQUIRE`, removing the root cause of MSVC D9025 NDEBUG override warnings while still evaluating checks in optimized builds.
+- Upgrades GitHub checkout and artifact actions to Node.js 24-compatible major versions to address runtime/dependency deprecation warnings.
+- Adds a reproducible static geometry check for five editor controls at four supported UI sizes.
+- Strengthens loop-seam regression with a quantitative jump-reduction assertion at ±2× and ±4×. Audio plugin/DSP output stays identical to v1.14.0.
+
+
 ## v1.14.0 — Seam safety, bounded high-speed playback, accessible controls (November 2026)
 - Conditions the readout of the immutable captured loop in a 1.5 ms region around the recording seam to avoid hard step discontinuities during forward/reverse scratches. This is applied at read time; stored capture samples are untouched.
 - Constrains the 32-tap sinc resampler to the maximum source-tap magnitude to prevent reconstruction overshoot, and sanitizes non-finite input taps. Generalized position wrap uses a slow-path modulo only when needed.
