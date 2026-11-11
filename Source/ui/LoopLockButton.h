@@ -20,14 +20,14 @@ public:
   const float progress=juce::jlimit(0.f,1.f,processor.lockedProgress.load(std::memory_order_relaxed));
   const auto rect=juce::Rectangle<float>(1.f,1.f,105.f,23.f);
   g.setColour(enabled?Theme::elevated:Theme::panel);
-  g.fillRoundedRectangle(rect,4.f);
-  g.setColour(enabled?Theme::accent.withAlpha(.8f):Theme::edge.withAlpha(over?.95f:.62f));
-  g.drawRoundedRectangle(rect,4.f,enabled?1.1f:.8f);
+  g.fillRect(rect);
+  g.setColour(enabled?Theme::accent:Theme::edge.withAlpha(over?.95f:.75f));
+  g.drawRect(rect,1.f);
   if(enabled && stage==1){
    g.setColour(Theme::accent.withAlpha(.12f));
-   g.fillRoundedRectangle(3.f,21.f,101.f*progress,1.4f,.6f);
+   g.fillRect(juce::Rectangle<float>(3.f,21.f,101.f*progress,1.4f));
   }
-  if(down){g.setColour(Theme::accent.withAlpha(.09f));g.fillRoundedRectangle(rect.reduced(1.f),3.f);}
+  if(down){g.setColour(Theme::accent.withAlpha(.08f));g.fillRect(rect.reduced(1.f));}
   g.setFont(Theme::uiFont(9.6f,true));
   g.setColour(enabled?Theme::accent:Theme::light);
   g.drawText("LOOP LOCK",7,4,66,17,juce::Justification::centredLeft);
@@ -36,10 +36,10 @@ public:
   const juce::String status=stage==2?"HELD":stage==1?(juce::String(juce::roundToInt(progress*100.f))+"%"):enabled?"ARM":"LIVE";
   g.drawText(status,68,4,30,17,juce::Justification::centredRight);
   g.setColour(stage==2?Theme::accent:stage==1?Theme::accent2:Theme::muted);
-  g.fillEllipse(98.f,11.f,3.f,3.f);
+  g.fillRect(juce::Rectangle<float>(98.f,11.f,3.f,3.f));
   if(hasKeyboardFocus(true)) {
    g.setColour(Theme::accent.withAlpha(.85f));
-   g.drawRoundedRectangle(rect.reduced(.8f),3.3f,1.15f);
+   g.drawRect(rect.reduced(.8f),1.15f);
   }
  }
 private:

@@ -8,7 +8,7 @@ FooterBar::FooterBar(ScratchPadAudioProcessor& p) : processor(p)
  nameEditor.setReturnKeyStartsNewLine(false);
  nameEditor.setColour(juce::TextEditor::backgroundColourId,Theme::plot);
  nameEditor.setColour(juce::TextEditor::textColourId,Theme::light);
- nameEditor.setColour(juce::TextEditor::highlightColourId,Theme::accent2);
+ nameEditor.setColour(juce::TextEditor::highlightColourId,Theme::accent.withAlpha(.30f));
  nameEditor.setColour(juce::TextEditor::outlineColourId,Theme::accent);
  nameEditor.setFont(Theme::uiFont(11.f));
  nameEditor.setVisible(false);
@@ -52,44 +52,49 @@ void FooterBar::paint(juce::Graphics& g)
 {
  juce::Graphics::ScopedSaveState saved(g);
  g.addTransform(juce::AffineTransform::scale(getWidth()/designW,getHeight()/designH));
- // The logotype has a single intentional diagonal cut; everything else
- // uses quiet dark surfaces so preset names and controls are legible.
- juce::Path brand;
- brand.startNewSubPath(0,3);brand.lineTo(181,3);brand.lineTo(193,21);
- brand.lineTo(181,39);brand.lineTo(0,39);brand.closeSubPath();
- g.setColour(Theme::plot);g.fillPath(brand);
- g.setColour(Theme::edge);g.strokePath(brand,juce::PathStrokeType(.8f));
- g.setColour(Theme::accent);g.setFont(Theme::font(19.f,true));
- g.drawText("SKELLY",13,5,97,24,juce::Justification::centredLeft);
- g.setColour(Theme::muted);g.setFont(Theme::uiFont(9.1f,true));
- g.drawText("SCRATCHPAD",107,13,77,12,juce::Justification::centredLeft);
- g.setColour(Theme::accent2.withAlpha(.7f));g.drawLine(13,34,99,34,1.f);
- // Two small but clearly separated text buttons.
+ Theme::drawCard(g,juce::Rectangle<float>(.5f,.5f,423.f,41.f));
+ // Official Skell skull: compact vector bone mark, no separate font/image.
+ Theme::drawSkull(g,10.f,6.f,.96f);
+ g.setColour(Theme::light);
+ g.setFont(Theme::font(17.f,true));
+ g.drawText("SKEL",42,5,62,22,juce::Justification::centredLeft);
+ g.setColour(Theme::accent);
+ g.drawText("PAD",100,5,56,22,juce::Justification::centredLeft);
+ g.setColour(Theme::muted);
+ g.setFont(Theme::uiFont(8.f));
+ g.drawText("SCRATCH / ENVELOPE",43,26,145,11,juce::Justification::centredLeft);
+ g.setColour(Theme::edge);
+ g.drawLine(191.f,7.f,191.f,35.f,1.f);
+ // Compact text actions, preserving the existing hit areas and gestures.
  for(int action=1;action<=2;++action){
   const float y=action==1?3.f:22.f;
-  if(hoveredAction==action){g.setColour(Theme::elevated);g.fillRoundedRectangle(197.f,y,59.f,16.f,3.f);}
-  g.setColour(hoveredAction==action?Theme::accent:Theme::muted);
+  const bool over=hoveredAction==action;
+  if(over){g.setColour(Theme::elevated);g.fillRect(juce::Rectangle<float>(196.f,y,59.f,16.f));}
+  g.setColour(over?Theme::accent:Theme::light);
   g.setFont(Theme::uiFont(10.f,true));
-  g.drawText(action==1?"MENU":"RENAME",201,(int)y,52,16,juce::Justification::centredLeft);
+  g.drawText(action==1?"MENU":"RENAME",200,(int)y,54,16,juce::Justification::centredLeft);
  }
- // Compact preset control with crisp arrow hit targets and a proper label.
- g.setColour(Theme::muted);g.setFont(Theme::uiFont(8.5f,true));
- g.drawText("FACTORY / USER PRESET",283,3,115,13,juce::Justification::centred);
+ g.setColour(Theme::muted);
+ g.setFont(Theme::uiFont(8.5f,true));
+ g.drawText("PRESET",282,4,117,12,juce::Justification::centred);
  for(int arrow=0;arrow<2;++arrow){
   const float x=arrow==0?259.f:400.f;
   const bool hot=hoveredAction==(arrow==0?3:4);
-  g.setColour(hot?Theme::edge:Theme::elevated);
-  g.fillRoundedRectangle(x,19.f,19.f,20.f,4.f);
-  g.setColour(Theme::accent.withAlpha(hot?1.f:.82f));
+  g.setColour(hot?Theme::elevated:Theme::panel);
+  g.fillRect(juce::Rectangle<float>(x,19.f,19.f,20.f));
+  g.setColour(hot?Theme::accent:Theme::edge);
+  g.drawRect(juce::Rectangle<float>(x,19.f,19.f,20.f),1.f);
+  g.setColour(hot?Theme::accent:Theme::light);
   juce::Path chevron;
   const float cx=x+9.5f,cy=29.f;
   if(arrow==0){chevron.startNewSubPath(cx+2.f,cy-4.f);chevron.lineTo(cx-2.f,cy);chevron.lineTo(cx+2.f,cy+4.f);}
   else{chevron.startNewSubPath(cx-2.f,cy-4.f);chevron.lineTo(cx+2.f,cy);chevron.lineTo(cx-2.f,cy+4.f);}
-  g.strokePath(chevron,juce::PathStrokeType(1.8f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
+  g.strokePath(chevron,juce::PathStrokeType(1.6f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
  }
  if(!renaming){
-  if(hoveredAction==5){g.setColour(Theme::elevated);g.fillRoundedRectangle(282.f,19.f,116.f,20.f,4.f);}
-  g.setColour(Theme::light);g.setFont(Theme::uiFont(11.f,true));
+  if(hoveredAction==5){g.setColour(Theme::elevated);g.fillRect(juce::Rectangle<float>(282.f,19.f,116.f,20.f));}
+  g.setColour(Theme::light);
+  g.setFont(Theme::uiFont(10.8f,true));
   g.drawFittedText(processor.getPresetName(),284,20,112,18,juce::Justification::centred,1);
  }
 }
@@ -202,7 +207,7 @@ void FooterBar::menu()
   }
   if(command==4){
    juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,"ScratchPad",
-    "Skelly Neon v1.14.1. Add or move dots, drag diamond handles to bend, Alt for free editing, Ctrl+wheel to zoom, Ctrl+Z to undo. Scratch Amount 0% is dry; STOP is automatable.");
+    "Skel Pad Bone v1.16.0. Add or move dots, drag diamond handles to bend, Alt for free editing, Ctrl+wheel to zoom, Ctrl+Z to undo. Scratch Amount 0% is dry; STOP is automatable.");
    return;
   }
   if(command==1||command==2){

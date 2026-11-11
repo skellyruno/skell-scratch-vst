@@ -46,16 +46,20 @@ void ScratchPadAudioProcessorEditor::paint(juce::Graphics& g)
  g.fillAll(Theme::bg);
  juce::Graphics::ScopedSaveState saved(g);
  g.addTransform(juce::AffineTransform::scale(getWidth()/441.f,getHeight()/263.f));
- // Thin, double-chamfered neon shell; left/right edges are design-time vector art.
- juce::Path outer;
- outer.startNewSubPath(9,3);outer.lineTo(432,3);
- outer.lineTo(438,9);outer.lineTo(438,254);outer.lineTo(432,260);
- outer.lineTo(9,260);outer.lineTo(3,254);outer.lineTo(3,9);outer.closeSubPath();
- g.setColour(Theme::accent.withAlpha(.10f));g.strokePath(outer,juce::PathStrokeType(3.f));
- g.setColour(Theme::accent.withAlpha(.78f));g.strokePath(outer,juce::PathStrokeType(1.f));
- g.setColour(Theme::edge.withAlpha(.64f));g.drawRoundedRectangle(7.f,7.f,427.f,248.f,5.f,.65f);
- g.setColour(Theme::edge.withAlpha(.95f));g.drawLine(12.f,208.f,429.f,208.f,.8f);
-
+ // The other Skell plugins use a quiet warm-black field with fine border
+ // and bone corner brackets, not an outlined neon-green hexagonal shell.
+ g.setColour(Theme::edge);
+ g.drawRect(juce::Rectangle<float>(4.f,4.f,433.f,255.f),.9f);
+ const float left=4.f,right=437.f,top=4.f,bottom=259.f;
+ juce::Path brackets;
+ brackets.startNewSubPath(left,top+10);brackets.lineTo(left,top);brackets.lineTo(left+10,top);
+ brackets.startNewSubPath(right-10,top);brackets.lineTo(right,top);brackets.lineTo(right,top+10);
+ brackets.startNewSubPath(left,bottom-10);brackets.lineTo(left,bottom);brackets.lineTo(left+10,bottom);
+ brackets.startNewSubPath(right-10,bottom);brackets.lineTo(right,bottom);brackets.lineTo(right,bottom-10);
+ g.setColour(Theme::muted.withAlpha(.50f));
+ g.strokePath(brackets,juce::PathStrokeType(1.15f));
+ g.setColour(Theme::edge);
+ g.drawLine(11.f,209.f,430.f,209.f,.8f);
 }
 void ScratchPadAudioProcessorEditor::resized()
 {

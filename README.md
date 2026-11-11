@@ -1,6 +1,13 @@
-# ScratchPad v1.15 — Skelly Neon Pro
+# ScratchPad v1.16 — Skel Pad Bone Edition
 
 JUCE 8/C++17 scratch-speed VST3 and Standalone effect, with an original vector UI, live circular recording buffer, two-head crossfades, and a freely editable speed envelope.
+
+## v1.16 — Visual unification with Skell Key + Skell Spacer
+
+- The UI is now the **Bone house theme** used by Skell Key and Skell Spacer: warm near-black #0b0a09, panels #131210, bone-white #e9e1cc, and restrained lime #b6f56a.
+- A matching vector **skull at bottom left** sits beside **SKEL** (bone) **PAD** (green). The actual plugin identity, preset data and automation IDs remain ScratchPad-compatible.
+- Replaced the heavily glowing double-neon shell and segmented platter art with flat corner-bracket cards, a quieter graph, simple buttons, and a slimmer ring dial. No control coordinates have moved.
+- Keep the product-name word in green on other Skell titles when those repositories are updated; this project changes ScratchPad only.
 
 ## v1.15 — Integrated DSP and rendered UI verification
 

@@ -1,3 +1,9 @@
+## v1.16.0 — Bone house UI and SKEL PAD branding (November 2026)
+- Matches visual palette and corner-bracket cards of skell-key-vst and skell-spacer-vst, without changing the DSP or plugin identity.
+- Adds the exact vector skull motif and two-color SKEL PAD footer brand.
+- Replaces the oversized neon frame and segmented platter with a warm flat UI, slimmer arc dial, and simple bordered Stop/Loop Lock controls.
+- Preserves click targets, editable envelope, all 36 factory presets, all existing automation parameter IDs and same resizing constraints.
+
 # ScratchPad changelog
 
 ## v1.14.1 — Warning-free Release regression and CI cleanup (November 2026)

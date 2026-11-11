@@ -43,19 +43,15 @@ void CurveEditor::paintGrid(juce::Graphics& g)
 {
  const auto whole=juce::Rectangle<float>(0,0,designW,designH);
  g.fillAll(Theme::panel);
- g.setGradientFill(juce::ColourGradient(Theme::elevated,juce::Point<float>(0,0),
-                                         Theme::panel,juce::Point<float>(designW,designH),false));
- g.fillRoundedRectangle(whole.reduced(.5f),6.f);
- g.setColour(Theme::edge.withAlpha(.75f));
- g.drawRoundedRectangle(whole.reduced(1.f),6.f,.8f);
- g.setColour(Theme::accent);
+ Theme::drawCard(g,whole.reduced(.5f));
+ g.setColour(Theme::light);
  g.setFont(Theme::font(10.f,true));
  g.drawText("SPEED / ENVELOPE",11,6,147,15,juce::Justification::centredLeft);
  g.setColour(Theme::muted);
  g.setFont(Theme::uiFont(8.f,true));
  // Edit shortcuts live in the tooltip; this space is reserved for playback status.
  g.setColour(Theme::plot);
- g.fillRoundedRectangle(plot,2.f);
+ g.fillRect(plot);
  {
   juce::Graphics::ScopedSaveState state(g);
   g.reduceClipRegion(plot.toNearestInt());
@@ -72,12 +68,12 @@ void CurveEditor::paintGrid(juce::Graphics& g)
    if(x<plot.getX()-1.f || x>plot.getRight()+1.f) continue;
    const bool beat=i%stepsPerBeat==0;
    const bool bar=i%(4*stepsPerBeat)==0;
-   g.setColour(Theme::accent.withAlpha(bar?.21f:beat?.14f:.037f));
+   g.setColour(Theme::muted.withAlpha(bar?.20f:beat?.11f:.045f));
    g.drawVerticalLine(juce::roundToInt(x),plot.getY(),plot.getBottom());
   }
   for(int yStep=-2;yStep<=2;++yStep) {
    const float y=plot.getCentreY()-yStep*plot.getHeight()*.25f;
-   g.setColour(yStep==0?Theme::accent.withAlpha(.28f):Theme::muted.withAlpha(.15f));
+   g.setColour(yStep==0?Theme::accent.withAlpha(.23f):Theme::muted.withAlpha(.15f));
    g.drawHorizontalLine(juce::roundToInt(y),plot.getX(),plot.getRight());
   }
  }
@@ -92,7 +88,7 @@ void CurveEditor::paintGrid(juce::Graphics& g)
   g.drawFittedText(tick,2,juce::roundToInt(y-7.f),28,14,juce::Justification::centredRight,1);
  }
  g.setColour(Theme::edge);
- g.drawRoundedRectangle(plot,2.f,1.f);
+ g.drawRect(plot,1.f);
  // True scrollbar: the track depicts the full cycle; the handle is the visible range.
  const auto track=juce::Rectangle<float>(32.f,181.f,250.f,5.f);
  g.setColour(Theme::muted.withAlpha(.17f));
@@ -170,8 +166,8 @@ void CurveEditor::paint(juce::Graphics& g)
   else if(capture<.99f) status="CAPTURE "+juce::String(juce::roundToInt(capture*100.f))+"%";
   else if(std::abs(speed)<.03f) status="HOLD  0.00x";
   else status=(speed<0.f?"REV  ":"FWD  +")+juce::String(speed,2)+"x";
-  g.setColour(Theme::accent.withAlpha(.10f));
-  g.fillRoundedRectangle(166.f,6.f,119.f,15.f,3.f);
+  g.setColour(Theme::elevated);
+  g.fillRect(juce::Rectangle<float>(166.f,6.f,119.f,15.f));
   g.setColour(stopped?Theme::muted:Theme::accent);
   g.setFont(Theme::uiFont(8.5f,true));
   g.drawFittedText(status,168,7,114,12,juce::Justification::centredRight,1);

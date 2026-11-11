@@ -1,22 +1,56 @@
 #pragma once
 #include <JuceHeader.h>
+
+// SKELL house "Bone" style, cross-checked with skell-key-vst and
+// skell-spacer-vst. Warm blacks, ivory type, one lime accent, no outer glow.
 namespace Theme {
-inline const auto bg       = juce::Colour::fromRGB(9, 14, 12);
-inline const auto panel    = juce::Colour::fromRGB(17, 25, 21);
-inline const auto elevated = juce::Colour::fromRGB(28, 41, 33);
-inline const auto plot     = juce::Colour::fromRGB(11, 20, 16);
-inline const auto accent   = juce::Colour::fromRGB(117, 250, 104);
-inline const auto accent2  = juce::Colour::fromRGB(48, 182, 105);
-inline const auto edge     = juce::Colour::fromRGB(47, 78, 57);
-inline const auto muted    = juce::Colour::fromRGB(153, 177, 161);
-inline const auto light    = juce::Colour::fromRGB(223, 237, 227);
-inline const auto white    = juce::Colour::fromRGB(244, 255, 244);
+inline const juce::Colour bg       { 0xff0b0a09 };
+inline const juce::Colour panel    { 0xff131210 };
+inline const juce::Colour elevated { 0xff1b1915 };
+inline const juce::Colour plot     { 0xff0b0a09 };
+inline const juce::Colour accent   { 0xffb6f56a };
+inline const juce::Colour accent2  { 0xff85cb4c };
+inline const juce::Colour edge     { 0xff2f2b23 };
+inline const juce::Colour muted    { 0xff9b937d };
+inline const juce::Colour faint    { 0xff4d483c };
+inline const juce::Colour light    { 0xffe9e1cc };
+inline const juce::Colour white    { 0xfffaf6e9 };
+
 inline juce::Font font(float height, bool bold = false) {
- // Consistent modern italic display typography without an external font file.
- return juce::Font(juce::FontOptions().withHeight(height).withStyle(bold ? "Bold Italic" : "Italic"));
+ juce::Font f(juce::FontOptions(height, bold ? juce::Font::bold : juce::Font::plain));
+ return f.withExtraKerningFactor(bold ? 0.04f : 0.015f);
 }
-// A readable native sans for small metadata; display text uses a clean italic variant.
 inline juce::Font uiFont(float height, bool bold = false) {
- return juce::Font(juce::FontOptions().withHeight(height).withStyle(bold ? "Bold" : "Regular"));
+ return juce::Font(juce::FontOptions(height, bold ? juce::Font::bold : juce::Font::plain));
+}
+
+// Corner-bracket card geometry is shared with Skell Spacer's Bone theme.
+inline void drawCard(juce::Graphics& g, juce::Rectangle<float> r) {
+ g.setColour(panel);g.fillRect(r);
+ g.setColour(edge);g.drawRect(r,1.f);
+ constexpr float length=8.f;
+ const auto a=r.getTopLeft(),b=r.getTopRight();
+ const auto c=r.getBottomLeft(),d=r.getBottomRight();
+ juce::Path corners;
+ corners.startNewSubPath(a.x,a.y+length);corners.lineTo(a.x,a.y);corners.lineTo(a.x+length,a.y);
+ corners.startNewSubPath(b.x-length,b.y);corners.lineTo(b.x,b.y);corners.lineTo(b.x,b.y+length);
+ corners.startNewSubPath(c.x,c.y-length);corners.lineTo(c.x,c.y);corners.lineTo(c.x+length,c.y);
+ corners.startNewSubPath(d.x-length,d.y);corners.lineTo(d.x,d.y);corners.lineTo(d.x,d.y-length);
+ g.setColour(muted.withAlpha(.7f));g.strokePath(corners,juce::PathStrokeType(1.15f));
+}
+
+// Matches the skull proportions and facial cut-outs of Skell Key/Spacer.
+// Small enough to serve as a real vector brand mark at the bottom of Pad.
+inline void drawSkull(juce::Graphics& g, float x, float y, float scale = 1.f) {
+ juce::Graphics::ScopedSaveState saved(g);
+ g.addTransform(juce::AffineTransform::scale(scale,scale).translated(x,y));
+ g.setColour(light);
+ g.fillEllipse(1.f,1.f,25.f,23.f);
+ g.fillRoundedRectangle(6.5f,18.f,14.f,10.f,3.f);
+ g.setColour(panel);
+ g.fillEllipse(6.2f,9.4f,6.4f,6.8f);
+ g.fillEllipse(14.6f,9.4f,6.4f,6.8f);
+ juce::Path nose;nose.addTriangle(13.5f,16.f,11.6f,20.f,15.4f,20.f);g.fillPath(nose);
+ for(int i=0;i<3;++i)g.fillRect(9.6f+3.4f*i,23.f,1.f,5.f);
 }
 }

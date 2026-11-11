@@ -16,63 +16,38 @@ void ScratchKnob::paint(juce::Graphics& g)
 {
  juce::Graphics::ScopedSaveState saved(g);
  g.addTransform(juce::AffineTransform::scale(getWidth()/114.f,getHeight()/125.f));
- constexpr float cx=57.f,cy=52.f,r=45.f;
- g.setColour(Theme::accent.withAlpha(hover?.075f:.028f));
- g.fillEllipse(cx-51.f,cy-51.f,102.f,102.f);
- for(int i=0;i<6;++i){
-  const float a=juce::degreesToRadians(-225.f+i*45.f);
-  const float b=juce::degreesToRadians(-225.f+(i+1)*45.f);
-  juce::Path wedge;
-  wedge.addCentredArc(cx,cy,r,r,0,a+.036f,b-.036f,true);
-  wedge.lineTo(cx,cy);wedge.closeSubPath();
-  // The unlit ring forms a stable, low-contrast backdrop.
-  g.setColour(Theme::edge.darker(.24f));
-  g.fillPath(wedge);
-  const float fraction=juce::jlimit(0.f,1.f,
-      (displayValue-i*(100.f/6.f))/(100.f/6.f));
-  if(fraction>.001f){
-   juce::Path progress;
-   progress.addCentredArc(cx,cy,r,r,0,a+.036f,
-       a+.036f+(b-a-.072f)*fraction,true);
-   progress.lineTo(cx,cy);progress.closeSubPath();
-   g.setColour(Theme::accent2.brighter(.08f+i/30.f));
-   g.fillPath(progress);
-   g.setColour(Theme::accent.withAlpha(.18f));
-   g.strokePath(progress,juce::PathStrokeType(.55f));
-  }
-  // Hairline radial divisions keep the six wedges readable.
-  g.setColour(Theme::plot);
-  g.drawLine(cx+std::sin(a)*r,cy-std::cos(a)*r,
-             cx+std::sin(a)*16.f,cy-std::cos(a)*16.f,.85f);
+ constexpr float cx=57.f,cy=52.f,r=40.f;
+ const float start=juce::degreesToRadians(-135.f);
+ const float end=start+juce::MathConstants<float>::pi*1.5f;
+ const float angle=start+(end-start)*juce::jlimit(0.f,1.f,displayValue*.01f);
+ // Skell Spacer-style thin track, single lime progress arc, bone marker.
+ juce::Path track,progress;
+ track.addCentredArc(cx,cy,r,r,0.f,start,end,true);
+ progress.addCentredArc(cx,cy,r,r,0.f,start,angle,true);
+ g.setColour(Theme::edge);
+ g.strokePath(track,juce::PathStrokeType(5.f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
+ if(displayValue>.1f) {
+  g.setColour(Theme::accent);
+  g.strokePath(progress,juce::PathStrokeType(4.f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
  }
- // Readable progress marker for fractional values, not only whole wedges.
- const float marker=juce::degreesToRadians(-225.f+270.f*displayValue*.01f);
- const float mx=cx+std::sin(marker)*r*.86f;
- const float my=cy-std::cos(marker)*r*.86f;
- g.setColour(Theme::accent.withAlpha(.28f));
- g.fillEllipse(mx-4.f,my-4.f,8.f,8.f);
- g.setColour(Theme::light);
- g.fillEllipse(mx-1.6f,my-1.6f,3.2f,3.2f);
- g.setColour(Theme::plot);
- g.fillEllipse(cx-29.f,cy-29.f,58.f,58.f);
- g.setColour(Theme::accent.withAlpha(.07f));
- g.drawEllipse(cx-31.f,cy-31.f,62.f,62.f,1.f);
- g.setGradientFill(juce::ColourGradient(Theme::elevated.withAlpha(.72f),
-                     cx-13.f,cy-22.f,Theme::plot.withAlpha(.35f),cx+20.f,cy+23.f,false));
- g.fillEllipse(cx-26.f,cy-26.f,52.f,52.f);
- g.setColour(Theme::edge.brighter(.18f));
- g.drawEllipse(cx-29.f,cy-29.f,58.f,58.f,1.2f);
- // Original compact Skelly crossed-arrow monogram.
+ g.setColour(Theme::elevated);
+ g.fillEllipse(cx-32.f,cy-32.f,64.f,64.f);
+ g.setColour(Theme::edge);
+ g.drawEllipse(cx-32.f,cy-32.f,64.f,64.f,1.f);
+ // The original crossed-arrow Scratch identity remains inside the dial.
  juce::Path icon;
- icon.startNewSubPath(cx-14,cy-13);icon.lineTo(cx+13,cy+11);icon.lineTo(cx+11,cy+4);
- icon.startNewSubPath(cx+13,cy+11);icon.lineTo(cx+5,cy+12);
- icon.startNewSubPath(cx+14,cy-13);icon.lineTo(cx-13,cy+11);icon.lineTo(cx-11,cy+4);
- icon.startNewSubPath(cx-13,cy+11);icon.lineTo(cx-5,cy+12);
+ icon.startNewSubPath(cx-12,cy-11);icon.lineTo(cx+11,cy+10);icon.lineTo(cx+9,cy+4);
+ icon.startNewSubPath(cx+11,cy+10);icon.lineTo(cx+4,cy+11);
+ icon.startNewSubPath(cx+12,cy-11);icon.lineTo(cx-11,cy+10);icon.lineTo(cx-9,cy+4);
+ icon.startNewSubPath(cx-11,cy+10);icon.lineTo(cx-4,cy+11);
  g.setColour(Theme::accent);
- g.strokePath(icon,juce::PathStrokeType(1.9f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
- if (hasKeyboardFocus(true)) {
-  g.setColour(Theme::accent.withAlpha(.72f));
-  g.drawEllipse(cx-49.f,cy-49.f,98.f,98.f,1.1f);
+ g.strokePath(icon,juce::PathStrokeType(1.7f,juce::PathStrokeType::curved,juce::PathStrokeType::rounded));
+ const auto marker=juce::Point<float>(cx+r*std::sin(angle),cy-r*std::cos(angle));
+ g.setColour(Theme::light);
+ g.fillRect(juce::Rectangle<float>(5.f,5.f).withCentre(marker));
+ if(hasKeyboardFocus(true)) {
+  g.setColour(Theme::accent.withAlpha(.7f));
+  g.drawEllipse(cx-45.f,cy-45.f,90.f,90.f,1.f);
  }
  g.setColour(Theme::light);
  g.setFont(Theme::uiFont(11.f,true));
