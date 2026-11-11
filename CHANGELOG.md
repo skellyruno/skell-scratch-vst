@@ -87,3 +87,8 @@
 - Adds an instant envelope fit-to-window shortcut (`F` / Ctrl+0 / double-click empty graph space) and `Esc` to deselect a point.
 - In locked mode the playback readout displays current forward/reverse speed or Hold, while the Loop Lock button continues to show capture/held status.
 - Keeps all 36 presets, plugin identity, and existing parameter IDs unchanged. Real listening, FL Studio runtime, and end-user interaction validation remain separate release gates.
+
+## v1.15.1 — Render-reviewed default-curve polish (November 2026)
+- Replaces only the fresh-instance default speed envelope with a balanced eight-point Skelly Starter pattern, leaving all factory presets and saved session curves intact.
+- Changes the new-instance display from "CAPTURE 0%" to "AWAIT AUDIO" until a real audio block reaches the processor; once audio arrives, capture percentage works as before.
+- Verified against actual JUCE editor renders and the processor-level smoke suite on Windows.

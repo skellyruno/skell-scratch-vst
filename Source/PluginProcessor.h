@@ -38,6 +38,7 @@ public:
  // UI-only meters: updated once per processed block, not every sample.
  std::atomic<float> currentSpeed{0.f};
  std::atomic<float> captureProgress{0.f};
+ std::atomic<bool> hasReceivedAudio{false};
  // Lock status for the UI: 0 = LIVE, 1 = CAPTURING, 2 = LOCKED.
  std::atomic<int> lockedStatus{0};
  std::atomic<float> lockedProgress{0.f};
@@ -56,7 +57,7 @@ private:
  std::vector<std::shared_ptr<const ScratchCurveData>> retiredCurves;
  std::mutex curvePublishMutex;  // Non-RT editors/state restores only; audio never locks.
  mutable std::mutex presetNameMutex;
- juce::String presetName{"scratch it!"};
+ juce::String presetName{"Skelly Starter"};
  juce::AudioBuffer<float> ring;
  juce::AudioBuffer<float> capturedLoop;
  int writePos=0, loopSamples=1, phaseSamples=0;

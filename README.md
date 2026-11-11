@@ -9,6 +9,7 @@ JUCE 8/C++17 scratch-speed VST3 and Standalone effect, with an original vector U
 - Curve editor: press **F** or **Ctrl+0**, or double-click empty graph space, to reset zoom; press **Escape** to deselect a point.
 - Locked playback now shows actual scratch speed/direction in the graph header instead of a permanent `LOOP LOCKED` message; capture status remains visible on the Loop Lock button.
 - The existing JUCE-free seven C++ regression suites remain available without downloading JUCE.
+- New plugin instances start with a more balanced **Skelly Starter** envelope instead of a crowded left-edge scribble; saved session curves and factory presets are unchanged. Before the first audio block, the UI reads **AWAIT AUDIO** rather than showing misleading 0% capture progress.
 
 ## v1.14.1 — CI and regression cleanup
 

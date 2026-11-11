@@ -53,6 +53,9 @@ struct BlockRunner {
 
 void testActualAudio() {
     ScratchPadAudioProcessor processor;
+    const auto initial = processor.curveSnapshot();
+    REQUIRE(initial != nullptr && initial->nodes.size() == 8);
+    REQUIRE(processor.getPresetName() == "Skelly Starter");
     setParameter(processor, "sync", 0.f);
     setParameter(processor, "loopLength", 0.f);
     setParameter(processor, "scratchAmount", 0.f);
@@ -60,6 +63,7 @@ void testActualAudio() {
     setParameter(processor, "loopLock", 0.f);
     processor.prepareToPlay(sampleRate, frames);
     REQUIRE(processor.getLatencySamples() == 0);
+    REQUIRE(!processor.hasReceivedAudio.load());
     BlockRunner runner{processor};
     const auto tone = [](std::int64_t i, int ch) {
         return static_cast<float>(.23 * std::sin(2 * pi * (ch == 0 ? 220. : 330.) * i / sampleRate));
@@ -67,6 +71,7 @@ void testActualAudio() {
     // Tests the real processBlock, not just the mix helper. After 1s of
     // history at 0% depth output must remain bit-exact dry.
     for (int block = 0; block < 375; ++block) runner.run(tone, true);
+    REQUIRE(processor.hasReceivedAudio.load());
 
     // New capture starts from the very next input sample. This proves that
     // silence fed later cannot overwrite the independently locked loop.

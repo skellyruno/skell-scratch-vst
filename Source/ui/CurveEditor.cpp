@@ -160,6 +160,7 @@ void CurveEditor::paint(juce::Graphics& g)
   juce::String status;
   const int lockStatus=processor.lockedStatus.load(std::memory_order_relaxed);
   if(stopped) status="STOPPED";
+  else if(!processor.hasReceivedAudio.load(std::memory_order_relaxed)) status="AWAIT AUDIO";
   else if(lockStatus==1) status="LOCK "+juce::String(juce::roundToInt(processor.lockedProgress.load()*100.f))+"%";
   else if(lockStatus==2) {
    if(speed<-.03f) status="LOCK REV "+juce::String(speed,2)+"x";

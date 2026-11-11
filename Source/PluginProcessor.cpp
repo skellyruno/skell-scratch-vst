@@ -6,7 +6,13 @@
 #include <cmath>
 #include <algorithm>
 namespace {
-std::vector<CurveNode> initialCurve() { return {{0,1.0f,0},{.025f,-1,0},{.05f,1.1f,0},{.075f,-1,0},{.10f,1,0},{.125f,-1,0},{.15f,1,0},{.175f,-1,0},{.20f,0,0},{.25f,-1,0},{.32f,1,0},{.63f,.7f,-.12f},{1,0,0}}; }
+std::vector<CurveNode> initialCurve() {
+ // A balanced, readable starter envelope. Previous sessions restore their
+ // saved curve; all 36 original factory presets remain unchanged.
+ return {{0.f,1.f,0.f},{.125f,0.f,0.f},{.25f,-1.f,0.f},
+         {.375f,1.f,0.f},{.5f,-.65f,0.f},{.625f,1.f,0.f},
+         {.75f,.25f,-.12f},{1.f,0.f,0.f}};
+}
 }
 ScratchPadAudioProcessor::ScratchPadAudioProcessor():AudioProcessor(BusesProperties().withInput("Input",juce::AudioChannelSet::stereo(),true).withOutput("Output",juce::AudioChannelSet::stereo(),true)),apvts(*this,nullptr,"Parameters",makeParameters()) { setCurve(initialCurve()); }
 juce::AudioProcessorValueTreeState::ParameterLayout ScratchPadAudioProcessor::makeParameters(){
@@ -68,6 +74,7 @@ void ScratchPadAudioProcessor::prepareToPlay(double sr, int block)
      apvts.getRawParameterValue("stopTrigger")->load() > .5f ? 0.f : 1.f);
  currentSpeed.store(0.f, std::memory_order_relaxed);
  captureProgress.store(0.f, std::memory_order_relaxed);
+ hasReceivedAudio.store(false, std::memory_order_relaxed);
  setLatencySamples(0);
 }
 void ScratchPadAudioProcessor::setCurve(std::vector<CurveNode> nodes)
@@ -130,6 +137,7 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
  juce::ScopedNoDenormals guard;
  const int ringSize=ring.getNumSamples();
  if(ringSize<8){buf.clear();return;}
+ if(buf.getNumSamples()>0) hasReceivedAudio.store(true,std::memory_order_relaxed);
  const auto* amountParam=apvts.getRawParameterValue("scratchAmount");
  const auto* lengthParam=apvts.getRawParameterValue("loopLength");
  const auto* rangeParam=apvts.getRawParameterValue("speedRange");
