@@ -80,3 +80,10 @@
 - Removes the externally embedded font dependency; original vector UI remains.
 
 **Local validation:** GCC 14.2 C++17 tests passed in Release with assertions on; Clang AddressSanitizer/UndefinedBehaviorSanitizer tests passed. JUCE/Windows/FL Studio compilation and audio listening tests are not verified locally.
+
+## v1.15.0 — Processor-level test coverage and UI interaction (November 2026)
+- Adds a real JUCE integration executable, built from the actual processor/editor code, to run `processBlock()` with known stereo input and verify exact 0% dry passthrough, the immutable locked loop, Stop automation, 4x playback safety, non-finite input sanitization, and reported latency.
+- Renders the actual JUCE editor to PNG at 441×263, 882×526 and 1323×789 on the Windows CI runner, and checks that the images contain the expected neon-green UI. Preview PNGs are packaged with the VST3 and Standalone artifact.
+- Adds an instant envelope fit-to-window shortcut (`F` / Ctrl+0 / double-click empty graph space) and `Esc` to deselect a point.
+- In locked mode the playback readout displays current forward/reverse speed or Hold, while the Loop Lock button continues to show capture/held status.
+- Keeps all 36 presets, plugin identity, and existing parameter IDs unchanged. Real listening, FL Studio runtime, and end-user interaction validation remain separate release gates.

@@ -1,6 +1,14 @@
-# ScratchPad v1.14.1 — Skelly Neon Pro
+# ScratchPad v1.15 — Skelly Neon Pro
 
 JUCE 8/C++17 scratch-speed VST3 and Standalone effect, with an original vector UI, live circular recording buffer, two-head crossfades, and a freely editable speed envelope.
+
+## v1.15 — Integrated DSP and rendered UI verification
+
+- Adds an **actual JUCE processor/editor smoke executable** used by Windows CI. It runs audio through the real `processBlock()` and checks dry passthrough, locked-loop capture playback after input goes silent, Stop automation, fast playback, non-finite input handling, and zero reported PDC latency.
+- Generates **actual JUCE editor snapshots** at the baseline 441×263 and two larger window sizes; the CI artifact now includes the PNGs alongside the VST3 and Standalone build. This is a real component render, not a mock UI.
+- Curve editor: press **F** or **Ctrl+0**, or double-click empty graph space, to reset zoom; press **Escape** to deselect a point.
+- Locked playback now shows actual scratch speed/direction in the graph header instead of a permanent `LOOP LOCKED` message; capture status remains visible on the Loop Lock button.
+- The existing JUCE-free seven C++ regression suites remain available without downloading JUCE.
 
 ## v1.14.1 — CI and regression cleanup
 

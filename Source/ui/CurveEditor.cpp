@@ -8,7 +8,7 @@ CurveEditor::CurveEditor(ScratchPadAudioProcessor& p) : processor(p)
 {
  setOpaque(true);
  setMouseCursor(juce::MouseCursor::CrosshairCursor);
- setTooltip("Click to add points; drag circles or diamond bend handles. Snap = 1/16 beat, Alt = free, Ctrl+wheel = zoom, Ctrl+Z = undo.");
+ setTooltip("Click to add points; drag circles or diamond bend handles. Snap = 1/16 beat, Alt = free, Ctrl+wheel = zoom, F = fit, Esc = deselect, Ctrl+Z = undo.");
  setWantsKeyboardFocus(true);
  startTimerHz(60);
 }
@@ -161,7 +161,11 @@ void CurveEditor::paint(juce::Graphics& g)
   const int lockStatus=processor.lockedStatus.load(std::memory_order_relaxed);
   if(stopped) status="STOPPED";
   else if(lockStatus==1) status="LOCK "+juce::String(juce::roundToInt(processor.lockedProgress.load()*100.f))+"%";
-  else if(lockStatus==2) status="LOOP LOCKED";
+  else if(lockStatus==2) {
+   if(speed<-.03f) status="LOCK REV "+juce::String(speed,2)+"x";
+   else if(speed>.03f) status="LOCK FWD +"+juce::String(speed,2)+"x";
+   else status="LOCK HOLD  0.00x";
+  }
   else if(capture<.99f) status="CAPTURE "+juce::String(juce::roundToInt(capture*100.f))+"%";
   else if(std::abs(speed)<.03f) status="HOLD  0.00x";
   else status=(speed<0.f?"REV  ":"FWD  +")+juce::String(speed,2)+"x";
@@ -410,7 +414,13 @@ void CurveEditor::mouseUp(const juce::MouseEvent&)
 void CurveEditor::mouseDoubleClick(const juce::MouseEvent& e)
 {
  const int index=findNode(logical(e.position),11.f);
- if(index<0) return;
+ if(index<0) {
+  // Fit the entire envelope on an empty-space double click.
+  viewStart=0.f;
+  viewWidth=1.f;
+  invalidateGrid();
+  return;
+ }
  if(processor.curveSnapshot()->nodes.size()<=2) return;
  if(index==0 || index+1==(int)processor.curveSnapshot()->nodes.size()) return;
  saveUndo();
@@ -434,6 +444,17 @@ void CurveEditor::mouseWheelMove(const juce::MouseEvent& e,const juce::MouseWhee
 bool CurveEditor::keyPressed(const juce::KeyPress& key)
 {
  const auto m=key.getModifiers();
+ const int keyCode=key.getKeyCode();
+ if (keyCode==juce::KeyPress::escapeKey) {
+  selected=-1;hovered=-1;hoveredBend=-1;
+  repaint();
+  return true;
+ }
+ if ((!m.isCtrlDown() && !m.isCommandDown() && (keyCode=='f' || keyCode=='F')) ||
+     ((m.isCtrlDown() || m.isCommandDown()) && keyCode=='0')) {
+  viewStart=0.f;viewWidth=1.f;invalidateGrid();
+  return true;
+ }
  if((m.isCtrlDown()||m.isCommandDown()) && (key.getKeyCode()=='z'||key.getKeyCode()=='Z')){if(m.isShiftDown())redo();else undo();return true;}
  if((m.isCtrlDown()||m.isCommandDown()) && (key.getKeyCode()=='y'||key.getKeyCode()=='Y')){redo();return true;}
  if(key.getKeyCode()==juce::KeyPress::deleteKey||key.getKeyCode()==juce::KeyPress::backspaceKey){

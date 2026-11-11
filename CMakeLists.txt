@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
-project(ScratchPad VERSION 1.14.1 LANGUAGES C CXX)
+project(ScratchPad VERSION 1.15.0 LANGUAGES C CXX)
+include(CTest)
 option(SCRATCHPAD_CORE_TESTS_ONLY "Compile JUCE-free DSP regression tests without fetching JUCE" OFF)
 if(NOT SCRATCHPAD_CORE_TESTS_ONLY)
 include(FetchContent)
@@ -15,10 +16,28 @@ target_sources(ScratchPad PRIVATE Source/PluginProcessor.cpp Source/PluginProces
 target_compile_features(ScratchPad PRIVATE cxx_std_17)
 target_compile_definitions(ScratchPad PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
 target_link_libraries(ScratchPad PRIVATE juce::juce_audio_utils juce::juce_audio_processors juce::juce_gui_extra juce::juce_dsp)
+
+# Compile the *real* processor and editor into an integration executable, not
+# a DSP stand-in. Run on Windows CI to exercise processBlock and render the UI.
+if(BUILD_TESTING)
+  juce_add_console_app(ScratchPadIntegrationSmoke PRODUCT_NAME "ScratchPad Integration Smoke")
+  juce_generate_juce_header(ScratchPadIntegrationSmoke)
+  target_sources(ScratchPadIntegrationSmoke PRIVATE
+    tests/plugin_integration_test.cpp
+    Source/PluginProcessor.cpp Source/PluginEditor.cpp
+    Source/ui/CurveEditor.cpp Source/ui/ScratchKnob.cpp Source/ui/FooterBar.cpp)
+  target_compile_features(ScratchPadIntegrationSmoke PRIVATE cxx_std_17)
+  target_compile_definitions(ScratchPadIntegrationSmoke PRIVATE
+    JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
+  target_link_libraries(ScratchPadIntegrationSmoke PRIVATE
+    juce::juce_audio_utils juce::juce_audio_processors
+    juce::juce_gui_extra juce::juce_dsp)
+  add_test(NAME ProcessorUIIntegration COMMAND ScratchPadIntegrationSmoke)
+endif()
+
 endif()
 
 # Offline core tests (no JUCE linkage required); run with `ctest --test-dir build -C Release`.
-include(CTest)
 if(BUILD_TESTING)
   add_executable(ScratchPadCurveTests tests/curve_math_test.cpp)
   add_executable(ScratchPadHeadSafetyTests tests/head_safety_test.cpp)

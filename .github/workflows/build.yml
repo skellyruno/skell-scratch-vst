@@ -12,7 +12,7 @@ jobs:
         run: cmake -S . -B build -A x64
       - name: Build
         run: cmake --build build --config Release --parallel 2
-      - name: Run DSP regression tests
+      - name: Run full DSP and actual JUCE editor regression tests
         run: ctest --test-dir build -C Release --output-on-failure
       - name: Validate editor geometry at supported sizes
         run: python tests/ui_geometry_check.py
@@ -27,10 +27,14 @@ jobs:
           if (-not $standalone) { throw 'ScratchPad Standalone.exe missing' }
           New-Item -ItemType Directory -Path 'dist/Standalone' -Force | Out-Null
           Copy-Item -LiteralPath $standalone.FullName -Destination 'dist/Standalone/ScratchPad.exe' -Force
+          $previews = 'build/ui-previews'
+          if (-not (Test-Path "$previews/scratchpad-441x263.png")) { throw 'Actual editor preview missing' }
+          New-Item -ItemType Directory -Path dist/ui-previews -Force | Out-Null
+          Copy-Item -Path "$previews/*.png" -Destination dist/ui-previews -Force
       # Actions downloads are already ZIP archives; no nested ZIPs.
       - uses: actions/upload-artifact@v6
         with:
           retention-days: 3
-          name: ScratchPad-Windows-1.14.1
+          name: ScratchPad-Windows-1.15
           path: dist/
           if-no-files-found: error
