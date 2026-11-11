@@ -249,26 +249,35 @@ void testActualEditor() {
                     size.x, size.y, neonPixels);
     }
     // Render the actual bottom strip with a known 0.75 FS stereo signal.
-    // The meter must react to real processBlock output, not a dummy timer.
+    // The UI updates on a 30Hz message-thread timer. Polling that timer
+    // only once after an arbitrary sleep is flaky on loaded Windows CI
+    // runners, because it may not be due at that exact instant. Re-feed
+    // the real processor and pump pending timers until a frame reflects
+    // the measured output, without reducing the minimum pixel threshold.
     juce::AudioBuffer<float> audio(2,128);
     juce::MidiBuffer midi;
-    for(int block=0;block<8;++block){
-        for(int ch=0;ch<2;++ch)for(int i=0;i<128;++i)
-            audio.setSample(ch,i,.75f);
-        processor.processBlock(audio,midi);
-    }
-    REQUIRE(processor.outputPeakHold.load(std::memory_order_relaxed)>.7f);
-    juce::Thread::sleep(55);
-    juce::Timer::callPendingTimersSynchronously();
-    editor->setSize(882,526);
-    const auto active=editor->createComponentSnapshot(editor->getLocalBounds());
-    REQUIRE(active.isValid());
+    juce::Image active;
     int lit=0;
-    for(int y=409;y<429;++y)for(int x=28;x<854;++x){
-        const auto c=active.getPixelAt(x,y);
-        if(c.getGreen()>170 && c.getGreen()>c.getRed()*1.2f &&
-           c.getGreen()>c.getBlue()*1.3f) ++lit;
+    for(int attempt=0;attempt<8 && lit<=60;++attempt){
+        for(int block=0;block<8;++block){
+            for(int ch=0;ch<2;++ch)for(int i=0;i<128;++i)
+                audio.setSample(ch,i,.75f);
+            processor.processBlock(audio,midi);
+        }
+        REQUIRE(processor.outputPeakHold.load(std::memory_order_relaxed)>.7f);
+        juce::Thread::sleep(40);
+        juce::Timer::callPendingTimersSynchronously();
+        editor->setSize(882,526);
+        active=editor->createComponentSnapshot(editor->getLocalBounds());
+        REQUIRE(active.isValid());
+        lit=0;
+        for(int y=409;y<429;++y)for(int x=28;x<854;++x){
+            const auto c=active.getPixelAt(x,y);
+            if(c.getGreen()>170 && c.getGreen()>c.getRed()*1.2f &&
+               c.getGreen()>c.getBlue()*1.3f) ++lit;
+        }
     }
+    std::printf("Actual JUCE meter: %d active lime pixels\n",lit);
     REQUIRE(lit>60);
     juce::PNGImageFormat png;
     juce::MemoryOutputStream activeBytes;
