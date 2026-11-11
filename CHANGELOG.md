@@ -1,3 +1,11 @@
+## v1.18.0 — Brand spelling and small-layout visual fixes (November 2026)
+- Corrects title to **SKELL PAD**, with the double-L surname in ivory and PAD in green, tightly spaced.
+- Suppresses redundant full-width pan scrollbar until zoom requires navigation.
+- Reduces the visual weight of bend-diamond handles without changing hit targets or drag behavior.
+- Hides playback cursor until audio is received.
+- Makes STOP's actual muting behavior explicit in compact text and tooltip.
+- Keeps the input-capture / lock behavior and all audio processing code unchanged.
+
 ## v1.17.0 — Audio-feedback meter, branding alignment and stress coverage (November 2026)
 - Adds a real processed-output 48-segment audio activity strip in Skell Key's style without enlarging the 441×263 interface.
 - Uses a realtime-safe atomic peak hold and UI-only decibel ballistics, retaining exact dry passthrough and zero reported latency.

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(ScratchPad VERSION 1.17.0 LANGUAGES C CXX)
+project(ScratchPad VERSION 1.18.0 LANGUAGES C CXX)
 include(CTest)
 option(SCRATCHPAD_CORE_TESTS_ONLY "Compile JUCE-free DSP regression tests without fetching JUCE" OFF)
 if(NOT SCRATCHPAD_CORE_TESTS_ONLY)

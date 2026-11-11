@@ -216,7 +216,7 @@ void testActualEditor() {
                     c.getGreen() > c.getBlue() * 1.1f) ++neonPixels;
             }
         REQUIRE(neonPixels > 10);
-        // Verify the *actual painted* footer has an ivory skull + SKEL and
+        // Verify the *actual painted* footer has an ivory skull + SKELL and
         // lime-green PAD word, following the Skell Key/Spacer house theme.
         auto designRect = [&](int x, int y, int w, int h) {
             return juce::Rectangle<int>(
@@ -237,8 +237,8 @@ void testActualEditor() {
             return count;
         };
         REQUIRE(pixels(designRect(18,220,29,31),false)>12); // skull
-        REQUIRE(pixels(designRect(52,220,49,25),false)>12); // SKEL
-        REQUIRE(pixels(designRect(89,220,54,25),true)>12); // PAD, tightly kerned
+        REQUIRE(pixels(designRect(52,220,56,25),false)>12); // SKELL
+        REQUIRE(pixels(designRect(95,220,64,25),true)>12); // PAD, tightly kerned
         juce::PNGImageFormat format;
         juce::MemoryOutputStream pngData;
         REQUIRE(format.writeImageToStream(image, pngData));

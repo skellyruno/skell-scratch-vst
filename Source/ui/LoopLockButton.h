@@ -10,7 +10,7 @@ public:
      : juce::TextButton("LOOP LOCK"), processor(p) {
   setClickingTogglesState(false);
   setMouseCursor(juce::MouseCursor::PointingHandCursor);
-  setTooltip("Capture the next complete input loop, then scratch it indefinitely. Click again for live mode. Automatable.");
+  setTooltip("Record one incoming loop and keep scratching it without new input overwriting it. Click again for live mode. The captured audio is not saved with your DAW project.");
  }
  void paintButton(juce::Graphics& g, bool over, bool down) override {
   juce::Graphics::ScopedSaveState saved(g);

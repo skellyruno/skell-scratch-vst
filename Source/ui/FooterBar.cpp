@@ -59,12 +59,12 @@ void FooterBar::paint(juce::Graphics& g)
  // The title now reads as one unit at every supported window size.
  const auto nameFont=Theme::font(17.f,true);
  juce::GlyphArrangement glyphs;
- glyphs.addLineOfText(nameFont,"SKEL",0.f,0.f);
+ glyphs.addLineOfText(nameFont,"SKELL",0.f,0.f);
  const float skelWidth=glyphs.getBoundingBox(0,-1,true).getWidth();
- const int padX=juce::roundToInt(42.f+skelWidth+2.5f);
+ const int padX=juce::roundToInt(42.f+skelWidth+2.f);
  g.setFont(nameFont);
  g.setColour(Theme::light);
- g.drawText("SKEL",42,5,juce::roundToInt(skelWidth+1.f),22,juce::Justification::centredLeft);
+ g.drawText("SKELL",42,5,juce::roundToInt(skelWidth+2.f),22,juce::Justification::centredLeft);
  g.setColour(Theme::accent);
  g.drawText("PAD",padX,5,56,22,juce::Justification::centredLeft);
  g.setColour(Theme::muted);
@@ -214,7 +214,7 @@ void FooterBar::menu()
   }
   if(command==4){
    juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,"ScratchPad",
-    "Skel Pad Bone v1.17.0. Add or move dots, drag diamond handles to bend, Alt for free editing, Ctrl+wheel to zoom, Ctrl+Z to undo. Scratch Amount 0% is dry; STOP is automatable.");
+    "Skell Pad Bone v1.18.0. Click to add points; drag circles to move, diamonds to bend. Alt: free editing; Ctrl+wheel: zoom; F: fit; Ctrl+Z: undo. Scratch 0% is dry. STOP mutes output; LOOP LOCK records one full incoming loop without overwriting it.");
    return;
   }
   if(command==1||command==2){

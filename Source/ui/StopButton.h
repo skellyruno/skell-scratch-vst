@@ -8,7 +8,7 @@ public:
  StopButton() : juce::TextButton("STOP") {
   setMouseCursor(juce::MouseCursor::PointingHandCursor);
   setClickingTogglesState(false);
-  setTooltip("Automatable STOP: click to toggle. 100% = halted; 0% = running.");
+  setTooltip("STOP is automatable. When engaged it fades the output to silence; click again to unmute.");
  }
  void paintButton(juce::Graphics& g, bool hovered, bool pressed) override {
   juce::Graphics::ScopedSaveState state(g);
@@ -24,7 +24,7 @@ public:
   g.drawText("STOP",10,5,78,17,juce::Justification::centredLeft);
   g.setColour(halted?Theme::accent:Theme::muted);
   g.setFont(Theme::uiFont(8.f));
-  g.drawText(halted?"ENGAGED":"CLICK TO HALT",10,23,87,11,juce::Justification::centredLeft);
+  g.drawText(halted?"MUTED":"MUTE OUTPUT",10,23,87,11,juce::Justification::centredLeft);
   g.setColour(halted?Theme::accent:hovered?Theme::light:Theme::faint);
   g.fillRect(juce::Rectangle<float>(94.f,14.f,5.f,5.f));
   if(hasKeyboardFocus(true)){

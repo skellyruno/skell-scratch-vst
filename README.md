@@ -1,6 +1,15 @@
-# ScratchPad v1.17 — Skel Pad Bone Edition
+# ScratchPad v1.18 — Skell Pad Bone Edition
 
 JUCE 8/C++17 scratch-speed VST3 and Standalone effect, with an original vector UI, live circular recording buffer, two-head crossfades, and a freely editable speed envelope.
+
+## v1.18 — SKELL PAD brand correction and precise UI cleanup
+
+- Footer brand now displays **SKELL** (two Ls) in ivory immediately followed by green **PAD**, with glyph-based spacing preserved at every supported size.
+- Removed the redundant pan scrollbar at full-envelope zoom. It reappears only when the graph is zoomed, and is interactive only then.
+- Subdued the default bend diamonds so the drawn envelope stays visually legible; hovering a bend handle still highlights its editing target.
+- Hid the playhead and trailing dots until actual audio reaches the processor.
+- Clarified STOP's subtitle to **MUTE OUTPUT** and **MUTED**, reflecting what its audio gain control actually does. Expanded Loop Lock's tooltip and updated About instructions.
+- DSP, 36 presets, existing six automation IDs and core timing remain unchanged.
 
 ## v1.17 — Signal feedback, title spacing and DSP stress
 

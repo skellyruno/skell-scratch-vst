@@ -89,13 +89,17 @@ void CurveEditor::paintGrid(juce::Graphics& g)
  }
  g.setColour(Theme::edge);
  g.drawRect(plot,1.f);
- // True scrollbar: the track depicts the full cycle; the handle is the visible range.
- const auto track=juce::Rectangle<float>(32.f,181.f,250.f,5.f);
- g.setColour(Theme::muted.withAlpha(.17f));
- g.fillRoundedRectangle(track,2.5f);
- const auto thumb=juce::Rectangle<float>(track.getX()+viewStart*track.getWidth(),track.getY(),track.getWidth()*viewWidth,track.getHeight());
- g.setColour(Theme::accent.withAlpha(.66f));
- g.fillRoundedRectangle(thumb,2.5f);
+ // Only show the pan scrollbar when the user actually zooms. An always-lit
+ // full-width bar looked like an unrelated slider on the compact default UI.
+ if (viewWidth < .999f) {
+  const auto track=juce::Rectangle<float>(32.f,181.f,250.f,4.f);
+  g.setColour(Theme::muted.withAlpha(.20f));
+  g.fillRoundedRectangle(track,2.f);
+  const auto thumb=juce::Rectangle<float>(track.getX()+viewStart*track.getWidth(),
+                                         track.getY(),track.getWidth()*viewWidth,track.getHeight());
+  g.setColour(Theme::accent.withAlpha(.68f));
+  g.fillRoundedRectangle(thumb,2.f);
+ }
  g.setColour(Theme::muted);
  g.setFont(Theme::uiFont(8.2f,true));
  g.drawText("0",32,171,16,9,juce::Justification::centredLeft);
@@ -215,9 +219,9 @@ void CurveEditor::paint(juce::Graphics& g)
   auto p=bendPoint(nodes[i-1],nodes[i]);
   if(p.x<plot.getX() || p.x>plot.getRight())continue;
   const bool hot=(int)i-1==hoveredBend || (int)i-1==bend;
-  g.setColour(hot?Theme::white:Theme::accent.withAlpha(.50f));
+  g.setColour(hot?Theme::white:Theme::muted.withAlpha(.48f));
   juce::Path diamond;
-  const float r=hot?4.8f:3.5f;
+  const float r=hot?4.5f:1.9f;
   diamond.startNewSubPath(p.x,p.y-r);diamond.lineTo(p.x+r,p.y);diamond.lineTo(p.x,p.y+r);diamond.lineTo(p.x-r,p.y);diamond.closeSubPath();
   g.fillPath(diamond);
  }
@@ -233,6 +237,7 @@ void CurveEditor::paint(juce::Graphics& g)
   g.fillEllipse(p.x-r,p.y-r,2*r,2*r);
   if(hot){g.setColour(Theme::accent.withAlpha(chosen?.82f:.40f));g.drawEllipse(p.x-r-2.7f,p.y-r-2.7f,2*r+5.4f,2*r+5.4f,1.f);}
  }
+ if (!processor.hasReceivedAudio.load(std::memory_order_relaxed)) return;
  const float play=processor.playhead.load(std::memory_order_relaxed);
  const float px=visibleX(play);
  g.setColour(Theme::accent.withAlpha(.07f));
@@ -350,7 +355,7 @@ void CurveEditor::mouseDown(const juce::MouseEvent& e)
  if(e.getNumberOfClicks()>1)return;
  const auto p=logical(e.position);
  if(e.mods.isPopupMenu()) {contextMenu(findNode(p));return;}
- if(p.y>=177.f && p.x>=28.f && p.x<=285.f){
+ if(viewWidth < .999f && p.y>=177.f && p.y<=189.f && p.x>=28.f && p.x<=285.f){
   draggingScroll=true;scrollStart=viewStart;
   const float trackX=32.f+viewStart*250.f,trackW=250.f*viewWidth;
   if(p.x<trackX||p.x>trackX+trackW){viewStart=CurveMath::clamp((p.x-32.f)/250.f-viewWidth*.5f,0.f,1.f-viewWidth);scrollStart=viewStart;invalidateGrid();}
