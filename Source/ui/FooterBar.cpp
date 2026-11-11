@@ -55,11 +55,18 @@ void FooterBar::paint(juce::Graphics& g)
  Theme::drawCard(g,juce::Rectangle<float>(.5f,.5f,423.f,41.f));
  // Official Skell skull: compact vector bone mark, no separate font/image.
  Theme::drawSkull(g,10.f,6.f,.96f);
+ // Measure the *actual glyphs* rather than using a hard-coded PAD x-offset.
+ // The title now reads as one unit at every supported window size.
+ const auto nameFont=Theme::font(17.f,true);
+ juce::GlyphArrangement glyphs;
+ glyphs.addLineOfText(nameFont,"SKEL",0.f,0.f);
+ const float skelWidth=glyphs.getBoundingBox(0,-1,true).getWidth();
+ const int padX=juce::roundToInt(42.f+skelWidth+2.5f);
+ g.setFont(nameFont);
  g.setColour(Theme::light);
- g.setFont(Theme::font(17.f,true));
- g.drawText("SKEL",42,5,62,22,juce::Justification::centredLeft);
+ g.drawText("SKEL",42,5,juce::roundToInt(skelWidth+1.f),22,juce::Justification::centredLeft);
  g.setColour(Theme::accent);
- g.drawText("PAD",100,5,56,22,juce::Justification::centredLeft);
+ g.drawText("PAD",padX,5,56,22,juce::Justification::centredLeft);
  g.setColour(Theme::muted);
  g.setFont(Theme::uiFont(8.f));
  g.drawText("SCRATCH / ENVELOPE",43,26,145,11,juce::Justification::centredLeft);
@@ -207,7 +214,7 @@ void FooterBar::menu()
   }
   if(command==4){
    juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,"ScratchPad",
-    "Skel Pad Bone v1.16.0. Add or move dots, drag diamond handles to bend, Alt for free editing, Ctrl+wheel to zoom, Ctrl+Z to undo. Scratch Amount 0% is dry; STOP is automatable.");
+    "Skel Pad Bone v1.17.0. Add or move dots, drag diamond handles to bend, Alt for free editing, Ctrl+wheel to zoom, Ctrl+Z to undo. Scratch Amount 0% is dry; STOP is automatable.");
    return;
   }
   if(command==1||command==2){

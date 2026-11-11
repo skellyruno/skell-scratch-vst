@@ -22,6 +22,8 @@ private:
  juce::TooltipWindow tooltipWindow;
  std::unique_ptr<juce::ParameterAttachment> stopAttachment;
  std::unique_ptr<juce::ParameterAttachment> lockAttachment;
+ float meterLevel=0.f;
+ int previousMeterSegments=-1;
  int previousLockState=-1;
  float previousLockProgress=-1.f;
  juce::String lastPresetName;

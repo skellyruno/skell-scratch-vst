@@ -1,3 +1,10 @@
+## v1.17.0 — Audio-feedback meter, branding alignment and stress coverage (November 2026)
+- Adds a real processed-output 48-segment audio activity strip in Skell Key's style without enlarging the 441×263 interface.
+- Uses a realtime-safe atomic peak hold and UI-only decibel ballistics, retaining exact dry passthrough and zero reported latency.
+- Fixes the visual gap between SKEL and green PAD with glyph-metric-based placement.
+- Expands JUCE-free and real-JUCE integration/stress coverage across extreme speed, transient and automation scenarios.
+- Preserves plugin identity, all six automation IDs, 36 presets, and existing DSP routing.
+
 ## v1.16.0 — Bone house UI and SKEL PAD branding (November 2026)
 - Matches visual palette and corner-bracket cards of skell-key-vst and skell-spacer-vst, without changing the DSP or plugin identity.
 - Adds the exact vector skull motif and two-color SKEL PAD footer brand.

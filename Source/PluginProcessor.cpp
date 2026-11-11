@@ -74,6 +74,7 @@ void ScratchPadAudioProcessor::prepareToPlay(double sr, int block)
      apvts.getRawParameterValue("stopTrigger")->load() > .5f ? 0.f : 1.f);
  currentSpeed.store(0.f, std::memory_order_relaxed);
  captureProgress.store(0.f, std::memory_order_relaxed);
+ outputPeakHold.store(0.f, std::memory_order_relaxed);
  hasReceivedAudio.store(false, std::memory_order_relaxed);
  setLatencySamples(0);
 }
@@ -223,6 +224,7 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
  const auto* curveData=realtimeCurve.load(std::memory_order_seq_cst);
  CurveMath::MonotonicCursor curveCursor(curveData ? &curveData->nodes : nullptr);
  float latestSpeed = 0.f;
+ float blockOutputPeak = 0.f;
  const int channels=std::min(buf.getNumChannels(),ring.getNumChannels());
  const bool stopped=stopParam->load()>.5f;
  const bool lockRequested=lockParam->load()>.5f;
@@ -351,7 +353,9 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
     wetDcBlockers[static_cast<size_t>(ch)].reset();
    }
    output*=gain;
-   buf.setSample(ch,i,std::isfinite(output)?output:0.f);
+   output=std::isfinite(output)?output:0.f;
+   blockOutputPeak=std::max(blockOutputPeak,std::abs(output));
+   buf.setSample(ch,i,output);
   }
   for(int ch=channels;ch<buf.getNumChannels();++ch)buf.clear(ch,i,1);
   readPos=HeadSafety::advance(readPos,speed,ringSize);
@@ -385,6 +389,7 @@ void ScratchPadAudioProcessor::processBlock(juce::AudioBuffer<float>& buf, juce:
  }
  playhead.store((float)phaseSamples/std::max(1,loopSamples),std::memory_order_relaxed);
  currentSpeed.store(latestSpeed,std::memory_order_relaxed);
+ ScratchDSP::publishPeak(outputPeakHold,blockOutputPeak);
  captureProgress.store(juce::jlimit(0.f,1.f,
      (float)recordedSamples/std::max(1,loopSamples)),std::memory_order_relaxed);
  const int status=lockRequested?(lockCapture.ready?2:1):0;

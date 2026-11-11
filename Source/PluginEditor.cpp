@@ -39,7 +39,7 @@ ScratchPadAudioProcessorEditor::ScratchPadAudioProcessorEditor(ScratchPadAudioPr
  lockAttachment->sendInitialUpdate();
  footer.beforePresetChange=[this]{curve.rememberExternalChange();};
  footer.loadPreset=[this](int){curve.resetSelectionAndRepaint();};
- startTimerHz(12);
+ startTimerHz(30);
 }
 void ScratchPadAudioProcessorEditor::paint(juce::Graphics& g)
 {
@@ -58,8 +58,21 @@ void ScratchPadAudioProcessorEditor::paint(juce::Graphics& g)
  brackets.startNewSubPath(right-10,bottom);brackets.lineTo(right,bottom);brackets.lineTo(right,bottom-10);
  g.setColour(Theme::muted.withAlpha(.50f));
  g.strokePath(brackets,juce::PathStrokeType(1.15f));
- g.setColour(Theme::edge);
- g.drawLine(11.f,209.f,430.f,209.f,.8f);
+ // Skell Key-style 48-tick audio activity strip, anchored just above the
+ // footer rather than adding another panel. Brightness follows actual output
+ // signal peak from processBlock, never the clock or an invented animation.
+ constexpr int ticks=48;
+ constexpr float startX=14.f, span=413.f, pitch=span/ticks;
+ const int active=juce::jlimit(0,ticks,juce::roundToInt(meterLevel*ticks));
+ for (int i=0;i<ticks;++i) {
+  const bool lit=i<active;
+  const float height=lit?5.6f:2.0f;
+  const float y=210.5f-height*.5f;
+  g.setColour(lit?Theme::accent.withAlpha(.48f+.48f*i/ticks)
+                 :Theme::faint.withAlpha(.58f));
+  g.fillRoundedRectangle(startX+i*pitch,y,pitch-2.2f,height,.8f);
+ }
+
 }
 void ScratchPadAudioProcessorEditor::resized()
 {
@@ -76,6 +89,15 @@ void ScratchPadAudioProcessorEditor::resized()
 void ScratchPadAudioProcessorEditor::timerCallback()
 {
  processor.collectRetiredCurves();
+ const float peak=ScratchDSP::consumePeak(processor.outputPeakHold);
+ const float nextMeter=ScratchDSP::meterFollow(meterLevel,ScratchDSP::peakToDisplay(peak));
+ const int nextSegments=juce::jlimit(0,48,juce::roundToInt(nextMeter*48.f));
+ if(nextSegments!=previousMeterSegments){
+  previousMeterSegments=nextSegments;
+  repaint(juce::Rectangle<int>(0,juce::roundToInt(getHeight()*204.f/263.f),
+                              getWidth(),juce::roundToInt(getHeight()*11.f/263.f)+2));
+ }
+ meterLevel=nextMeter;
  const int state=processor.lockedStatus.load(std::memory_order_relaxed);
  const float progress=processor.lockedProgress.load(std::memory_order_relaxed);
  if(state!=previousLockState || std::abs(progress-previousLockProgress)>.015f){

@@ -2,6 +2,7 @@
 #include "TestCheck.h"
 #include <JuceHeader.h>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -116,8 +117,79 @@ void testActualAudio() {
     // Damaged source samples must be sanitized before reaching the output.
     const auto broken = [](std::int64_t, int) { return std::numeric_limits<float>::quiet_NaN(); };
     for (int block = 0; block < 6; ++block) runner.run(broken);
+    REQUIRE(processor.outputPeakHold.load(std::memory_order_relaxed)>0.f);
+    const float held = ScratchDSP::consumePeak(processor.outputPeakHold);
+    REQUIRE(held>0.f && processor.outputPeakHold.load()==0.f);
     processor.releaseResources();
     std::printf("Real JUCE DSP: dry passthrough, immutable capture, stop, release, NaN and latency passed\n");
+}
+
+// Stress the actual JUCE processBlock: full loop lock, ±4x read-head motion,
+// rapid host automation and damaged/transient input at professional sample rates.
+void testActualProcessorStress() {
+ for (double rate : {44100.0,48000.0,96000.0,192000.0}) {
+  ScratchPadAudioProcessor processor;
+  setParameter(processor,"sync",0.f);
+  setParameter(processor,"loopLength",0.f);
+  setParameter(processor,"speedRange",2.f);
+  setParameter(processor,"scratchAmount",100.f);
+  setParameter(processor,"loopLock",1.f);
+  processor.prepareToPlay(rate,256);
+  REQUIRE(processor.getLatencySamples()==0);
+  juce::AudioBuffer<float> block(2,256);
+  juce::MidiBuffer midi;
+  unsigned int rng=0xbadbeef0u;
+  float maxOutput=0.f;
+  const auto began=std::chrono::steady_clock::now();
+  int readyAt=-1;
+  for(int iteration=0;iteration<930;++iteration) {
+   // First 430 blocks must be uninterrupted, so the loop captures even
+   // at 192 kHz; the rest aggressively change parameters every few blocks.
+   if(iteration>=430) {
+    if(iteration%11==0) setParameter(processor,"scratchAmount",static_cast<float>((iteration*17)%101));
+    if(iteration%13==0) setParameter(processor,"stopTrigger",iteration%26==0?1.f:0.f);
+    if(iteration%17==0) setParameter(processor,"speedRange",static_cast<float>((iteration/17)%3));
+    if(iteration%79==0) setParameter(processor,"loopLock",iteration%158==0?1.f:0.f);
+    if(iteration%101==0) setParameter(processor,"loopLength",static_cast<float>((iteration/101)%5));
+    if(iteration%109==0) {
+     std::vector<CurveNode> nodes;
+     nodes.reserve(40);
+     for(int i=0;i<40;++i) {
+      rng^=rng<<13;rng^=rng>>17;rng^=rng<<5;
+      nodes.push_back({i/39.f,(float)((int)(rng%4001)-2000)/1000.f,0.f});
+     }
+     processor.setCurve(std::move(nodes));
+     processor.collectRetiredCurves();
+    }
+   }
+   for(int i=0;i<256;++i)for(int ch=0;ch<2;++ch) {
+    rng^=rng<<13;rng^=rng>>17;rng^=rng<<5;
+    const float noise=.25f*((rng&65535u)/32768.f-1.f);
+    const float transient=((iteration*256+i)%3072==0)?(ch?-.93f:.93f):0.f;
+    float v=noise+transient;
+    if((iteration*256+i)%16001==0)v=std::numeric_limits<float>::quiet_NaN();
+    if((iteration*256+i)%32771==0)v=std::numeric_limits<float>::infinity();
+    if((iteration*256+i)%19311==0)v=1.e-38f;
+    block.setSample(ch,i,v);
+   }
+   processor.processBlock(block,midi);
+   if(processor.lockedStatus.load(std::memory_order_relaxed)==2 && readyAt<0)readyAt=iteration;
+   for(int ch=0;ch<2;++ch)for(int i=0;i<256;++i) {
+    const float y=block.getSample(ch,i);
+    REQUIRE(std::isfinite(y));
+    REQUIRE(std::abs(y)<8.f); // floating-headroom bound, not hard clipping
+    maxOutput=std::max(maxOutput,std::abs(y));
+   }
+  }
+  REQUIRE(readyAt>=0);
+  REQUIRE(maxOutput>.05f);
+  REQUIRE(processor.getLatencySamples()==0);
+  const double elapsed=std::chrono::duration<double>(std::chrono::steady_clock::now()-began).count();
+  const double duration=930.0*256.0/rate;
+  std::printf("REAL PROCESSOR STRESS rate=%g Hz: %d blocks, lock ready @%d, peak=%.3f, DSP real-time load=%.1f%%\n",
+              rate,930,readyAt,maxOutput,100.0*elapsed/duration);
+  processor.releaseResources();
+ }
 }
 
 void testActualEditor() {
@@ -166,7 +238,7 @@ void testActualEditor() {
         };
         REQUIRE(pixels(designRect(18,220,29,31),false)>12); // skull
         REQUIRE(pixels(designRect(52,220,49,25),false)>12); // SKEL
-        REQUIRE(pixels(designRect(109,220,52,25),true)>12); // PAD
+        REQUIRE(pixels(designRect(89,220,54,25),true)>12); // PAD, tightly kerned
         juce::PNGImageFormat format;
         juce::MemoryOutputStream pngData;
         REQUIRE(format.writeImageToStream(image, pngData));
@@ -176,6 +248,34 @@ void testActualEditor() {
         std::printf("Real JUCE editor: %dx%d PNG rendered; neon pixels %d\n",
                     size.x, size.y, neonPixels);
     }
+    // Render the actual bottom strip with a known 0.75 FS stereo signal.
+    // The meter must react to real processBlock output, not a dummy timer.
+    juce::AudioBuffer<float> audio(2,128);
+    juce::MidiBuffer midi;
+    for(int block=0;block<8;++block){
+        for(int ch=0;ch<2;++ch)for(int i=0;i<128;++i)
+            audio.setSample(ch,i,.75f);
+        processor.processBlock(audio,midi);
+    }
+    REQUIRE(processor.outputPeakHold.load(std::memory_order_relaxed)>.7f);
+    juce::Thread::sleep(55);
+    juce::Timer::callPendingTimersSynchronously();
+    editor->setSize(882,526);
+    const auto active=editor->createComponentSnapshot(editor->getLocalBounds());
+    REQUIRE(active.isValid());
+    int lit=0;
+    for(int y=409;y<429;++y)for(int x=28;x<854;++x){
+        const auto c=active.getPixelAt(x,y);
+        if(c.getGreen()>170 && c.getGreen()>c.getRed()*1.2f &&
+           c.getGreen()>c.getBlue()*1.3f) ++lit;
+    }
+    REQUIRE(lit>60);
+    juce::PNGImageFormat png;
+    juce::MemoryOutputStream activeBytes;
+    REQUIRE(png.writeImageToStream(active,activeBytes));
+    REQUIRE(previews.getChildFile("scratchpad-882x526-meter-active.png")
+        .replaceWithData(activeBytes.getData(),activeBytes.getDataSize()));
+    std::printf("Real JUCE audio meter: %d lime pixels in activity strip\n",lit);
     editor.reset();
     processor.releaseResources();
 }
@@ -184,6 +284,7 @@ void testActualEditor() {
 int main() {
     juce::ScopedJuceInitialiser_GUI gui;
     testActualAudio();
+    testActualProcessorStress();
     testActualEditor();
     return 0;
 }

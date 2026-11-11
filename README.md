@@ -1,6 +1,14 @@
-# ScratchPad v1.16 — Skel Pad Bone Edition
+# ScratchPad v1.17 — Skel Pad Bone Edition
 
 JUCE 8/C++17 scratch-speed VST3 and Standalone effect, with an original vector UI, live circular recording buffer, two-head crossfades, and a freely editable speed envelope.
+
+## v1.17 — Signal feedback, title spacing and DSP stress
+
+- **48 Skell Key-style dotted audio ticks** at the bottom of the interface, driven by the actual peak of processed output audio (not a looping animation). A lock-free max hold captures transients between UI redraws, and the display falls gently at 30 Hz.
+- **Tight SKEL PAD title kerning**: PAD now starts immediately after the measured width of SKEL, in lime green as before. The vector skull remains at the left.
+- **Zero-latency feedback**: metering is a sidechain-only visualization of the existing output and adds no signal processing delay or host PDC.
+- **Extreme stress regression**: high/low-speed sinc, stereo/mono tap safety, circular-buffer seams, sampled-output limits, invalid/silent input, peak-hold concurrency, denormal-range inputs, and huge virtual read positions.
+- **Windows JUCE regression**: real processor audio metering and updated tight two-color branding are checked in the editor render.
 
 ## v1.16 — Visual unification with Skell Key + Skell Spacer
 

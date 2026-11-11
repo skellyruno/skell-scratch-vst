@@ -10,6 +10,7 @@
 #include "BandlimitedInterpolation.h"
 #include "LockedLoop.h"
 #include "LoopSeam.h"
+#include "SignalMeter.h"
 struct ScratchCurveData { std::vector<CurveNode> nodes; };
 class ScratchPadAudioProcessor : public juce::AudioProcessor {
 public:
@@ -37,6 +38,8 @@ public:
  std::atomic<float> playhead{0.f};
  // UI-only meters: updated once per processed block, not every sample.
  std::atomic<float> currentSpeed{0.f};
+ // Peak of processed audio since the last UI redraw (atomic max/consume).
+ std::atomic<float> outputPeakHold{0.f};
  std::atomic<float> captureProgress{0.f};
  std::atomic<bool> hasReceivedAudio{false};
  // Lock status for the UI: 0 = LIVE, 1 = CAPTURING, 2 = LOCKED.
