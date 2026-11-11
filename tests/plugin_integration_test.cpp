@@ -72,7 +72,14 @@ void testActualAudio() {
     // silence fed later cannot overwrite the independently locked loop.
     setParameter(processor, "scratchAmount", 100.f);
     setParameter(processor, "loopLock", 1.f);
-    for (int block = 0; block < 70; ++block) runner.run(tone);
+    // 1/4 bar at 120 BPM is one beat (0.5 s), NOT an eighth note.
+    // Allow capture to finish according to musical loop length rather than
+    // incorrectly assuming a fixed number of audio blocks.
+    int captureBlocks = 0;
+    while (processor.lockedStatus.load() != 2 && captureBlocks++ < 300)
+        runner.run(tone);
+    std::printf("JUCE Loop Lock: ready after %d blocks (%.3fs)\n",
+                captureBlocks, captureBlocks * frames / sampleRate);
     REQUIRE(processor.lockedStatus.load() == 2);
     REQUIRE(processor.lockedProgress.load() == 1.f);
     const auto zero = [](std::int64_t, int) { return 0.f; };
