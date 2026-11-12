@@ -16,6 +16,7 @@ public:
  void refreshPresetState();
  std::function<void(int)> loadPreset;
  std::function<void()> beforePresetChange;
+ std::function<void()> requestTutorial;
 private:
  static constexpr float designW = 424.f, designH = 42.f;
  ScratchPadAudioProcessor& processor;

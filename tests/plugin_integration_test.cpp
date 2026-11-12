@@ -1,4 +1,5 @@
 #include "../Source/PluginProcessor.h"
+#include "../Source/PluginEditor.h"
 #include "TestCheck.h"
 #include <JuceHeader.h>
 #include <algorithm>
@@ -285,6 +286,41 @@ void testActualEditor() {
     REQUIRE(previews.getChildFile("scratchpad-882x526-meter-active.png")
         .replaceWithData(activeBytes.getData(),activeBytes.getDataSize()));
     std::printf("Real JUCE audio meter: %d lime pixels in activity strip\n",lit);
+    // Exercise the REAL shared SkellCore tour overlay. Headless screenshots
+    // do not auto-launch a first-run tutorial, but explicit replay must work.
+    auto* actualEditor=dynamic_cast<ScratchPadAudioProcessorEditor*>(editor.get());
+    REQUIRE(actualEditor!=nullptr);
+    const float amountBefore=processor.apvts.getRawParameterValue("scratchAmount")->load();
+    const float lockBefore=processor.apvts.getRawParameterValue("loopLock")->load();
+    for(const auto size : {juce::Point<int>{441,263},juce::Point<int>{882,526}}){
+        editor->setSize(size.x,size.y);
+        REQUIRE(actualEditor->showGuidedTourForScreenshot());
+        auto* overlay=actualEditor->guidedTourOverlayForScreenshot();
+        REQUIRE(overlay!=nullptr);
+        REQUIRE(overlay->getBounds()==editor->getLocalBounds());
+        REQUIRE(overlay->stepCount()==5);
+        for(int step=0;step<5;++step){
+            REQUIRE(overlay->stepIndex()==step);
+            REQUIRE(!overlay->spotlightBounds().isEmpty());
+            REQUIRE(!overlay->informationBounds().isEmpty());
+            REQUIRE(editor->getLocalBounds().contains(overlay->informationBounds()));
+            REQUIRE(editor->getLocalBounds().contains(overlay->spotlightBounds()));
+            if(step!=4)overlay->advance();
+        }
+        const auto preview=editor->createComponentSnapshot(editor->getLocalBounds());
+        REQUIRE(preview.isValid());
+        juce::PNGImageFormat screenshotFormat;
+        juce::MemoryOutputStream picture;
+        REQUIRE(screenshotFormat.writeImageToStream(preview,picture));
+        const auto save=previews.getChildFile("scratchpad-"+juce::String(size.x)+"x"+
+            juce::String(size.y)+"-guided-tour.png");
+        REQUIRE(save.replaceWithData(picture.getData(),picture.getDataSize()));
+        actualEditor->dismissGuidedTourForScreenshot();
+        REQUIRE(actualEditor->guidedTourOverlayForScreenshot()==nullptr);
+    }
+    // The tutorial is purely UI: never modify audio or automation values.
+    REQUIRE(processor.apvts.getRawParameterValue("scratchAmount")->load()==amountBefore);
+    REQUIRE(processor.apvts.getRawParameterValue("loopLock")->load()==lockBefore);
     editor.reset();
     processor.releaseResources();
 }

@@ -167,7 +167,7 @@ void FooterBar::menu()
 {
  juce::PopupMenu m;
  m.addItem(1,"Save preset...");m.addItem(2,"Load preset...");
- m.addItem(3,"Initialize curve");m.addItem(4,"About ScratchPad");
+ m.addItem(3,"Initialize curve");m.addItem(5,"Guided tutorial...");m.addItem(4,"About SKELL PAD");
  juce::PopupMenu bank;
  for(int i=0;i<ScratchPresets::count();++i) bank.addItem(100+i,ScratchPresets::names[(size_t)i]);
  m.addSubMenu("Factory presets ("+juce::String(ScratchPresets::count())+")",bank);
@@ -205,6 +205,7 @@ void FooterBar::menu()
    }
    return;
   }
+  if(command==5){if(safe->requestTutorial)safe->requestTutorial();return;}
   if(command==3){
    if(safe->beforePresetChange)safe->beforePresetChange();
    safe->processor.setCurve({{0.f,1.f,0.f},{1.f,0.f,0.f}});
@@ -214,7 +215,7 @@ void FooterBar::menu()
   }
   if(command==4){
    juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,"ScratchPad",
-    "Skell Pad Bone v1.18.0. Click to add points; drag circles to move, diamonds to bend. Alt: free editing; Ctrl+wheel: zoom; F: fit; Ctrl+Z: undo. Scratch 0% is dry. STOP mutes output; LOOP LOCK records one full incoming loop without overwriting it.");
+    "Skell Pad Bone v1.19.0. Click to add points; drag circles to move, diamonds to bend. Alt: free editing; Ctrl+wheel: zoom; F: fit; Ctrl+Z: undo. Scratch 0% is dry. STOP mutes output; LOOP LOCK records one full incoming loop without overwriting it.");
    return;
   }
   if(command==1||command==2){

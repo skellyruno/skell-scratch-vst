@@ -1,3 +1,10 @@
+## v1.19.0 — SkellCore five-step guided tutorial (November 2026)
+- Reuses the shared SkellCore GuidedTour component from Skell Preset.
+- First visible opening offers a 5-step spotlight tour covering curve editing, amount, Loop Lock, Stop and presets/menu.
+- Includes Next/Back/Skip, Escape to dismiss, persistent seen-once preference and replay through the existing Menu.
+- Tour is message-thread only, does not touch audio/automation, and scales to the existing fixed-aspect UI.
+- Extends actual JUCE editor integration snapshots with tutorial geometry and interaction tests.
+
 ## v1.18.0 — Brand spelling and small-layout visual fixes (November 2026)
 - Corrects title to **SKELL PAD**, with the double-L surname in ivory and PAD in green, tightly spaced.
 - Suppresses redundant full-width pan scrollbar until zoom requires navigation.

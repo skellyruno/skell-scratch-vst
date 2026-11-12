@@ -1,6 +1,13 @@
-# ScratchPad v1.18 — Skell Pad Bone Edition
+# ScratchPad v1.19 — Skell Pad Bone Edition
 
 JUCE 8/C++17 scratch-speed VST3 and Standalone effect, with an original vector UI, live circular recording buffer, two-head crossfades, and a freely editable speed envelope.
+
+## v1.19 — Short SkellCore guided tutorial
+
+- On the first **visible** opening, a 5-step tutorial spotlights the envelope, Scratch Amount, Loop Lock, Stop, and the preset/menu bar. It explains the real audio behavior without changing parameters.
+- Use **NEXT**, **BACK**, or **SKIP**; **Escape** exits. The completion flag is stored in the local user application-data directory via SkellCore, not in the DAW preset or APVTS state. Skipping marks the tour as seen.
+- Replay anytime using **MENU > Guided tutorial...**. The first-run overlay does not appear in automated headless screenshots; Windows integration tests explicitly request and render it instead.
+- The actual shared **SkellCore/GuidedTour.h** (from the Skell Preset repo) is vendored as a header-only UI component. No additional network fetch, audio dependency, latency or parameter is introduced.
 
 ## v1.18 — SKELL PAD brand correction and precise UI cleanup
 

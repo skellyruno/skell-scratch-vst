@@ -39,7 +39,42 @@ ScratchPadAudioProcessorEditor::ScratchPadAudioProcessorEditor(ScratchPadAudioPr
  lockAttachment->sendInitialUpdate();
  footer.beforePresetChange=[this]{curve.rememberExternalChange();};
  footer.loadPreset=[this](int){curve.resetSelectionAndRepaint();};
+ footer.requestTutorial=[this]{showGuidedTour(false);};
+ guidedTour=std::make_unique<skellcore::ui::GuidedTourController>(*this,"skell-pad",1);
+ skellcore::ui::GuidedTourPalette colours;
+ colours.accent=Theme::accent;
+ colours.panel=Theme::panel;
+ colours.text=Theme::light;
+ colours.secondary=Theme::muted;
+ colours.shade=juce::Colours::black.withAlpha(.78f);
+ guidedTour->setPalette(colours);
+ guidedTour->setSteps({
+  {&curve,"DRAW YOUR SCRATCH","Click on the curve to add a dot. Drag dots for speed; drag small diamonds to bend. Alt disables snapping."},
+  {&knob,"SCRATCH AMOUNT","Turn this dial to blend the effect. 0% is clean audio; 100% is full scratching."},
+  {&lock,"LOOP LOCK","Capture one full loop, then keep scratching the same sound. HELD means the recording is ready. Tap again for live audio."},
+  {&stop,"STOP / UNMUTE","Stop mutes the audio output; it does not delete your loop. Click again to hear it."},
+  {&footer,"PRESETS & MENU","Use the preset arrows or open MENU for loop length, sync and presets. MENU > Guided tutorial replays this tour."}
+ });
  startTimerHz(30);
+}
+void ScratchPadAudioProcessorEditor::showGuidedTour(bool firstRun)
+{
+ if(!guidedTour)return;
+ if(firstRun)guidedTour->startIfFirstRun();
+ else guidedTour->replay();
+}
+bool ScratchPadAudioProcessorEditor::showGuidedTourForScreenshot()
+{
+ if(!guidedTour)return false;
+ return guidedTour->replay();
+}
+skellcore::ui::GuidedTourOverlay* ScratchPadAudioProcessorEditor::guidedTourOverlayForScreenshot() const noexcept
+{
+ return guidedTour ? guidedTour->overlay() : nullptr;
+}
+void ScratchPadAudioProcessorEditor::dismissGuidedTourForScreenshot()
+{
+ if(guidedTour) guidedTour->dismiss();
 }
 void ScratchPadAudioProcessorEditor::paint(juce::Graphics& g)
 {
@@ -88,6 +123,12 @@ void ScratchPadAudioProcessorEditor::resized()
 }
 void ScratchPadAudioProcessorEditor::timerCallback()
 {
+ // Only show the first-run overlay when the host actually displays the
+ // editor. Headless screenshots must retain an unobscured default view.
+ if(!firstRunTourChecked && isShowing() && getPeer()!=nullptr){
+  firstRunTourChecked=true;
+  showGuidedTour(true);
+ }
  processor.collectRetiredCurves();
  const float peak=ScratchDSP::consumePeak(processor.outputPeakHold);
  const float nextMeter=ScratchDSP::meterFollow(meterLevel,ScratchDSP::peakToDisplay(peak));
