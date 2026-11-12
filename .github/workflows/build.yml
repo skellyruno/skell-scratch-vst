@@ -1,6 +1,12 @@
 name: Build ScratchPad Windows
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'Source/SkellCore/GuidedTour.h'
+      - 'Source/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/build.yml'
   push:
     branches: [main, master]
 jobs:
