@@ -25,14 +25,25 @@ jobs:
       - name: Stage release binaries
         shell: pwsh
         run: |
-          $plugin = Get-ChildItem build -Filter 'ScratchPad.vst3' -Directory -Recurse | Select-Object -First 1
-          if (-not $plugin) { throw 'ScratchPad.vst3 missing' }
+          $ErrorActionPreference = 'Stop'
+          $plugins = @(Get-ChildItem build -Filter 'ScratchPad.vst3' -Directory -Recurse | Where-Object { $_.FullName -match '[\\/]Release[\\/]' })
+          if ($plugins.Count -ne 1) { throw "Expected one Release ScratchPad.vst3 bundle, found $($plugins.Count)" }
+          $plugin = $plugins[0]
+          $modules = @(Get-ChildItem -LiteralPath $plugin.FullName -Filter 'ScratchPad.vst3' -File -Recurse | Where-Object { $_.FullName -match '[\\/]Contents[\\/]x86_64-win[\\/]' })
+          if ($modules.Count -ne 1) { throw "Expected one x86_64-win VST3 module, found $($modules.Count)" }
+          $bytes = [System.IO.File]::ReadAllBytes($modules[0].FullName)
+          if ($bytes.Length -lt 512 -or $bytes[0] -ne 77 -or $bytes[1] -ne 90) { throw 'Invalid Windows MZ executable header' }
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3c)
+          if ($peOffset -lt 64 -or $peOffset + 26 -gt $bytes.Length) { throw 'Invalid PE header offset' }
+          if ([Text.Encoding]::ASCII.GetString($bytes, $peOffset, 4) -ne "PE`0`0") { throw 'Missing PE signature' }
+          if ([BitConverter]::ToUInt16($bytes, $peOffset + 4) -ne 0x8664) { throw 'VST3 module is not AMD64' }
+          if ([BitConverter]::ToUInt16($bytes, $peOffset + 24) -ne 0x20b) { throw 'VST3 module is not PE32+' }
           New-Item -ItemType Directory -Path dist -Force | Out-Null
           Copy-Item -LiteralPath $plugin.FullName -Destination 'dist/ScratchPad.vst3' -Recurse -Force
-          $standalone = Get-ChildItem build -Filter 'ScratchPad.exe' -File -Recurse | Where-Object { $_.FullName -match 'Standalone' } | Select-Object -First 1
-          if (-not $standalone) { throw 'ScratchPad Standalone.exe missing' }
-          New-Item -ItemType Directory -Path 'dist/Standalone' -Force | Out-Null
-          Copy-Item -LiteralPath $standalone.FullName -Destination 'dist/Standalone/ScratchPad.exe' -Force
+          Get-FileHash -Algorithm SHA256 -LiteralPath $modules[0].FullName | Format-List
+          $installedModule = 'dist/ScratchPad.vst3/Contents/x86_64-win/ScratchPad.vst3'
+          if (-not (Test-Path -LiteralPath $installedModule)) { throw 'Staged module missing' }
+          if ((Get-FileHash -Algorithm SHA256 -LiteralPath $installedModule).Hash -ne (Get-FileHash -Algorithm SHA256 -LiteralPath $modules[0].FullName).Hash) { throw 'Staged module checksum mismatch' }
           $previews = 'build/ui-previews'
           if (-not (Test-Path "$previews/scratchpad-441x263.png")) { throw 'Actual editor preview missing' }
           New-Item -ItemType Directory -Path dist/ui-previews -Force | Out-Null
@@ -40,7 +51,7 @@ jobs:
       # Actions downloads are already ZIP archives; no nested ZIPs.
       - uses: actions/upload-artifact@v6
         with:
-          retention-days: 3
-          name: ScratchPad-Windows-1.19-GuidedTour
+          retention-days: 7
+          name: ScratchPad-Windows-1.19-VST3-PR-${{ github.run_id }}
           path: dist/
           if-no-files-found: error
