@@ -16,16 +16,16 @@ permissions:
   contents: read
 
 concurrency:
-  group: scratchpad-\${{ github.workflow }}-\${{ github.ref }}
+  group: scratchpad-${{ github.workflow }}-${{ github.ref }}
   # Supersede only PR validation; preserve main pushes and manual builds.
-  cancel-in-progress: \${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   windows:
     runs-on: windows-latest
     timeout-minutes: 45
     env:
-      SOURCE_COMMIT: \${{ github.event.pull_request.head.sha || github.sha }}
+      SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v6
 
@@ -164,6 +164,6 @@ jobs:
       - uses: actions/upload-artifact@v6
         with:
           retention-days: 14
-          name: ScratchPad-Windows-1.19-VST3-PR-\${{ github.run_id }}
+          name: ScratchPad-Windows-1.19-VST3-PR-${{ github.run_id }}
           path: release-package/
           if-no-files-found: error
