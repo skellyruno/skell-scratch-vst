@@ -55,6 +55,9 @@ struct BlockRunner {
 
 void testActualAudio() {
     ScratchPadAudioProcessor processor;
+    REQUIRE(processor.getNumPrograms() == 1);
+    REQUIRE(processor.getProgramName(0) == "Default");
+    REQUIRE(processor.getProgramName(0).isNotEmpty());
     const auto initial = processor.curveSnapshot();
     REQUIRE(initial != nullptr && initial->nodes.size() == 8);
     REQUIRE(processor.getPresetName() == "Skelly Starter");
