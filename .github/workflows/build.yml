@@ -144,7 +144,7 @@ jobs:
           @'
           PREVIEW ONLY — NOT A COMMERCIAL RELEASE
 
-          This artifact is a private Windows x64 VST3 engineering preview.
+          This artifact is a Windows x64 VST3 engineering preview. The GitHub Actions artifact is publicly accessible while this repository is public.
           Do not redistribute or install over a known-good production version.
           FL Studio host acceptance, real-audio A/B, target-hardware CPU/latency,
           licensing/attribution, support contacts, and signed install/update/rollback
